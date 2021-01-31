@@ -127,3 +127,9 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+
+Output.txt
+.vscode
+*.xlsx
+.note
