@@ -11,6 +11,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions
 from selenium.webdriver.common.by import By
 from selenium.common.exceptions import TimeoutException, NoSuchElementException
+from prettytable import PrettyTable
 
 
 def main():
@@ -26,6 +27,9 @@ def main():
 
     # Get chats
     chats = get_chats(driver)
+
+    # Print chat summary
+    print_chats(chats)
 
 
 def setup_selenium():
@@ -201,6 +205,41 @@ def get_chats(driver):
     chat_search.send_keys(Keys.DOWN)
 
     return chats
+
+
+def print_chats(chats, prettified=False):
+    '''Prints a summary of the scraped chats'''
+
+    # Print a full summary of the scraped chats
+    if prettified:
+        # Create a pretty table
+        t = PrettyTable()
+        t.field_names = ["#", "Chat Name", "Last Msg Time", "Last Msg"]
+
+        # Style the columns
+        for key in t.align.keys():
+            t.align[key] = "l"
+        t._max_width = {"#": 4, "Chat Name": 25,
+                        "Last Msg Time": 12, "Last Msg": 70}
+
+        # Add chat records to the table
+        for i, chat in enumerate(chats):
+            t.add_row([str(i+1), chat['name'], chat['time'], chat['message']])
+
+        # Print the table
+        print(t.get_string(title='Your WhatsApp Chats'))
+
+    # Print only the # of chats scraped, but give user option to display more info if they want
+    else:
+        print(f"{len(chats)} chats discovered")
+
+        # Ask user if they want a longer summary
+        user_response = input(
+            "Would you like to see a complete summary of the scraped chats (y/n)?")
+        if user_response.lower() == 'y' or user_response.lower() == 'yes':
+            print_chats(chats, prettified=True)
+        else:
+            return
 
 
 if __name__ == "__main__":
