@@ -164,8 +164,7 @@ def get_chats(driver):
                             '_7W_3c').find_element_by_class_name('emoji').get_attribute('alt')
                     except NoSuchElementException:
                         print(
-                            f"Something went wrong while reading a chat card. Skipping '{selected_chat.text}'")
-                        print(f"Chat card info: {chat_info}")
+                            f"Something went wrong while reading a chat card. Skipping '{chat_info}'")
                         continue
 
                 # One-on-one chat where last message is a photo attachment OR Group chat where last message is an emoji.
@@ -184,15 +183,13 @@ def get_chats(driver):
                         last_chat_msg = f"{chat_info[2]}{chat_info[3].strip()} {emoji_loc}"
                     except NoSuchElementException:
                         print(
-                            f"Something went wrong while reading a chat card. Skipping '{selected_chat.text}'")
-                        print(f"Chat card info: {chat_info}")
+                            f"Something went wrong while reading a chat card. Skipping '{chat_info}'")
                         continue
 
                 # Handle any other length in case of errors
                 else:
                     print(
-                        f"Something went wrong while reading a chat card. Skipping '{selected_chat.text}'")
-                    print(f"Chat card info: {chat_info}")
+                        f"Something went wrong while reading a chat card. Skipping '{chat_info}'")
                     continue
 
             # Store chat info within a dict
