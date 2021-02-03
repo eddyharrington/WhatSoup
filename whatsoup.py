@@ -31,6 +31,13 @@ def main():
     # Print chat summary
     print_chats(chats)
 
+    # Ask user what chat to export, or if they wish to quit
+    selected_export = select_chat_export(chats)
+    if not selected_export:
+        return
+    else:
+        print(f"Success! '{selected_export}' will be scraped and exported.")
+
 
 def setup_selenium():
     '''Setup Selenium to use Chrome webdriver'''
@@ -204,8 +211,14 @@ def get_chats(driver):
     return chats
 
 
-def print_chats(chats, prettified=False):
+def print_chats(chats, prettified=False, names_only=False):
     '''Prints a summary of the scraped chats'''
+
+    # Print only the chat names
+    if names_only:
+        for i, chat in enumerate(chats, start=1):
+            print(f"{i}) {chat['name']}")
+        return
 
     # Print a full summary of the scraped chats
     if prettified:
@@ -237,6 +250,77 @@ def print_chats(chats, prettified=False):
             print_chats(chats, prettified=True)
         else:
             return
+
+
+def select_chat_export(chats):
+    '''Prompts the user to select a chat they want to scrape/export'''
+
+    while True:
+        print("\nSelect a chat export option.\n  Options:\n  (person/group name)\tScrapes the chat's history\n  -chatnames\t\tView your chat names\n  -quit\t\t\tQuits the application\n")
+        export_response = input(
+            "What chat would you like to scrape and export? ")
+
+        if export_response.lower() == '-chatnames':
+            print_chats(chats, names_only=True)
+        elif export_response.lower() == '-quit':
+            print("You've quit WhatSoup.")
+            return None
+        else:
+            # TODO Should check if the user entered a number correlating to the chat as well instead of only accepting alphachar name. Combine this with the below partial check.
+
+            # First find possible matches
+            possible_matches = [
+                chat for chat in chats if export_response.lower() in chat['name'].lower()]
+
+            # Then look for exact matches
+            if not possible_matches:
+                # No possible matches found, allow user to try again
+                print(
+                    f"Uh oh! Could not find a matching chat for '{export_response}'")
+                continue
+            else:
+                # Store partial matches
+                matches = []
+                for match in possible_matches:
+                    # Exact matches will be scraped
+                    if match['name'].lower() == export_response.lower():
+                        selected_export = match['name']
+                        return selected_export
+                    # Partial matches will be collected and let the user decide which one to scrape
+                    else:
+                        matches.append(match['name'])
+
+                # Present partial matches to user for decision
+                if matches:
+                    # TODO add option to not quit but go back to selecting a chat? Or just move this up higher so we check for numbers, full, and partial.
+                    # Similar to behavior if user currently enters nothing / hits Enter for their selection.
+                    # TODO: validate for empty input? If input == ''
+
+                    print(f"\nAction required! Select a partial match to proceed with.\n  Options:\n  (chat number)\t\tSelects the chat name\n  -quit\t\t\tQuits the application\n\n  Chat numbers:")
+                    for i, partial in enumerate(matches):
+                        print(f"  {i+1}) {partial}")
+
+                    while True:
+                        partial_response = input(
+                            "\nWhat chat number would you like to scrape and export? ")
+                        try:
+                            int(partial_response)
+                        except ValueError:
+                            if partial_response.lower() == '-quit':
+                                # TODO refactor for consistency with load_whatsapp, which -quit returns a 1 or 0. Any solution is fine but make them consistent.
+                                print("You've quit WhatSoup.")
+                                return None
+                            else:
+                                print(
+                                    "Uh oh! You didn't enter a number. Try again.")
+                        else:
+                            if int(partial_response) in range(1, len(matches)+1):
+                                selected_export = matches[int(
+                                    partial_response)-1]
+                                return selected_export
+                            else:
+                                print(
+                                    f"Uh oh! The only valid options are numbers 1 - {len(matches)}. Try again.")
 
 
 if __name__ == "__main__":
