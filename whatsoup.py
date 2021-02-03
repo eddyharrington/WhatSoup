@@ -74,16 +74,16 @@ def load_whatsapp(driver):
                 f"Error: WhatsApp did not load within {wait_time} seconds. Make sure you are logged in and let's try again.")
 
             # Ask user if they want to try loading WhatsApp again
-            err_response = input("Proceed (y/n)?")
+            err_response = input("Proceed (y/n)? ")
 
             # Check the user's response
-            if err_response.lower() == 'y' or err_response.lower() == 'yes':
+            if err_response.strip().lower() == 'y' or err_response.strip().lower() == 'yes':
                 # Ask user if they want to increment the wait time by 10 seconds
                 wait_response = input(
-                    f"Increase wait time for WhatsApp to load from {wait_time} seconds to {wait_time + 10} seconds? (y/n)")
+                    f"Increase wait time for WhatsApp to load from {wait_time} seconds to {wait_time + 10} seconds (y/n)? ")
 
                 # Increase wait time by 10 seconds
-                if wait_response.lower() == 'y' or wait_response.lower() == 'yes':
+                if wait_response.strip().lower() == 'y' or wait_response.strip().lower() == 'yes':
                     wait_time += 10
 
                 continue
@@ -245,8 +245,8 @@ def print_chats(chats, prettified=False, names_only=False):
 
         # Ask user if they want a longer summary
         user_response = input(
-            "Would you like to see a complete summary of the scraped chats (y/n)?")
-        if user_response.lower() == 'y' or user_response.lower() == 'yes':
+            "Would you like to see a complete summary of the scraped chats (y/n)? ")
+        if user_response.strip().lower() == 'y' or user_response.strip().lower() == 'yes':
             print_chats(chats, prettified=True)
         else:
             return
@@ -260,9 +260,9 @@ def select_chat_export(chats):
         export_response = input(
             "What chat would you like to scrape and export? ")
 
-        if export_response.lower() == '-chatnames':
+        if export_response.strip().lower() == '-chatnames':
             print_chats(chats, names_only=True)
-        elif export_response.lower() == '-quit':
+        elif export_response.strip().lower() == '-quit':
             print("You've quit WhatSoup.")
             return None
         else:
@@ -270,7 +270,7 @@ def select_chat_export(chats):
 
             # First find possible matches
             possible_matches = [
-                chat for chat in chats if export_response.lower() in chat['name'].lower()]
+                chat for chat in chats if export_response.strip().lower() in chat['name'].lower()]
 
             # Then look for exact matches
             if not possible_matches:
@@ -283,7 +283,7 @@ def select_chat_export(chats):
                 matches = []
                 for match in possible_matches:
                     # Exact matches will be scraped
-                    if match['name'].lower() == export_response.lower():
+                    if match['name'].lower() == export_response.strip().lower():
                         selected_export = match['name']
                         return selected_export
                     # Partial matches will be collected and let the user decide which one to scrape
@@ -304,9 +304,9 @@ def select_chat_export(chats):
                         partial_response = input(
                             "\nWhat chat number would you like to scrape and export? ")
                         try:
-                            int(partial_response)
+                            int(partial_response.strip())
                         except ValueError:
-                            if partial_response.lower() == '-quit':
+                            if partial_response.strip().lower() == '-quit':
                                 # TODO refactor for consistency with load_whatsapp, which -quit returns a 1 or 0. Any solution is fine but make them consistent.
                                 print("You've quit WhatSoup.")
                                 return None
@@ -314,9 +314,9 @@ def select_chat_export(chats):
                                 print(
                                     "Uh oh! You didn't enter a number. Try again.")
                         else:
-                            if int(partial_response) in range(1, len(matches)+1):
+                            if int(partial_response.strip()) in range(1, len(matches)+1):
                                 selected_export = matches[int(
-                                    partial_response)-1]
+                                    partial_response.strip())-1]
                                 return selected_export
                             else:
                                 print(
