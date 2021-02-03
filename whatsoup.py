@@ -211,17 +211,11 @@ def get_chats(driver):
     return chats
 
 
-def print_chats(chats, prettified=False, names_only=False):
+def print_chats(chats, full=False):
     '''Prints a summary of the scraped chats'''
 
-    # Print only the chat names
-    if names_only:
-        for i, chat in enumerate(chats, start=1):
-            print(f"{i}) {chat['name']}")
-        return
-
     # Print a full summary of the scraped chats
-    if prettified:
+    if full:
         # Create a pretty table
         t = PrettyTable()
         t.field_names = ["#", "Chat Name", "Last Msg Time", "Last Msg"]
@@ -233,21 +227,43 @@ def print_chats(chats, prettified=False, names_only=False):
                         "Last Msg Time": 12, "Last Msg": 70}
 
         # Add chat records to the table
-        for i, chat in enumerate(chats):
-            t.add_row([str(i+1), chat['name'], chat['time'], chat['message']])
+        for i, chat in enumerate(chats, start=1):
+            t.add_row([str(i), chat['name'], chat['time'], chat['message']])
 
         # Print the table
         print(t.get_string(title='Your WhatsApp Chats'))
+        return
 
-    # Print only the # of chats scraped, but give user option to display more info if they want
+    # Print a short summary (up to 5 most recent chats), and give user option to display more info if they want
     else:
-        print(f"{len(chats)} chats discovered")
+        # Create a pretty table
+        t = PrettyTable()
+        t.field_names = ["#", "Chat Name", "Last Msg Time", "Last Msg"]
+
+        # Style the columns
+        for key in t.align.keys():
+            t.align[key] = "l"
+        t._max_width = {"#": 4, "Chat Name": 25,
+                        "Last Msg Time": 12, "Last Msg": 70}
+
+        # Add up to 5 most recent chat records to the table
+        row_count = 0
+        for i, chat in enumerate(chats, start=1):
+            if i < 6:
+                t.add_row([str(i), chat['name'], chat['time'], chat['message']])
+                row_count += 1
+            else:
+                break
+
+        # Print the table
+        print(
+            f"{t.get_string(title=f'Your {row_count} Most Recent WhatsApp Chats')}\n")
 
         # Ask user if they want a longer summary
         user_response = input(
             "Would you like to see a complete summary of the scraped chats (y/n)? ")
         if user_response.strip().lower() == 'y' or user_response.strip().lower() == 'yes':
-            print_chats(chats, prettified=True)
+            print_chats(chats, full=True)
         else:
             return
 
@@ -256,71 +272,32 @@ def select_chat_export(chats):
     '''Prompts the user to select a chat they want to scrape/export'''
 
     while True:
-        print("\nSelect a chat export option.\n  Options:\n  (person/group name)\tScrapes the chat's history\n  -chatnames\t\tView your chat names\n  -quit\t\t\tQuits the application\n")
+        # Ask user to select chat for export
+        selected_export = None
+        print("\nSelect a chat export option.\n  Options:\n  chat number\t\tSelect chat for export\n  -listchats\t\tList your chats\n  -quit\t\t\tQuit the application\n")
         export_response = input(
             "What chat would you like to scrape and export? ")
 
-        if export_response.strip().lower() == '-chatnames':
-            print_chats(chats, names_only=True)
+        # Check users response
+        if export_response.strip().lower() == '-listchats':
+            print_chats(chats, full=True)
         elif export_response.strip().lower() == '-quit':
             print("You've quit WhatSoup.")
             return None
         else:
-            # TODO Should check if the user entered a number correlating to the chat as well instead of only accepting alphachar name. Combine this with the below partial check.
-
-            # First find possible matches
-            possible_matches = [
-                chat for chat in chats if export_response.strip().lower() in chat['name'].lower()]
-
-            # Then look for exact matches
-            if not possible_matches:
-                # No possible matches found, allow user to try again
-                print(
-                    f"Uh oh! Could not find a matching chat for '{export_response}'")
-                continue
+            # Make sure user entered a number correlating to the chat
+            try:
+                int(export_response)
+            except ValueError:
+                print("Uh oh! You didn't enter a number. Try again.")
             else:
-                # Store partial matches
-                matches = []
-                for match in possible_matches:
-                    # Exact matches will be scraped
-                    if match['name'].lower() == export_response.strip().lower():
-                        selected_export = match['name']
-                        return selected_export
-                    # Partial matches will be collected and let the user decide which one to scrape
-                    else:
-                        matches.append(match['name'])
-
-                # Present partial matches to user for decision
-                if matches:
-                    # TODO add option to not quit but go back to selecting a chat? Or just move this up higher so we check for numbers, full, and partial.
-                    # Similar to behavior if user currently enters nothing / hits Enter for their selection.
-                    # TODO: validate for empty input? If input == ''
-
-                    print(f"\nAction required! Select a partial match to proceed with.\n  Options:\n  (chat number)\t\tSelects the chat name\n  -quit\t\t\tQuits the application\n\n  Chat numbers:")
-                    for i, partial in enumerate(matches):
-                        print(f"  {i+1}) {partial}")
-
-                    while True:
-                        partial_response = input(
-                            "\nWhat chat number would you like to scrape and export? ")
-                        try:
-                            int(partial_response.strip())
-                        except ValueError:
-                            if partial_response.strip().lower() == '-quit':
-                                # TODO refactor for consistency with load_whatsapp, which -quit returns a 1 or 0. Any solution is fine but make them consistent.
-                                print("You've quit WhatSoup.")
-                                return None
-                            else:
-                                print(
-                                    "Uh oh! You didn't enter a number. Try again.")
-                        else:
-                            if int(partial_response.strip()) in range(1, len(matches)+1):
-                                selected_export = matches[int(
-                                    partial_response.strip())-1]
-                                return selected_export
-                            else:
-                                print(
-                                    f"Uh oh! The only valid options are numbers 1 - {len(matches)}. Try again.")
+                if int(export_response) in range(1, len(chats)+1):
+                    selected_export = chats[int(
+                        export_response)-1]['name']
+                    return selected_export
+                else:
+                    print(
+                        f"Uh oh! The only valid options are numbers 1 - {len(chats)}. Try again.")
 
 
 if __name__ == "__main__":
