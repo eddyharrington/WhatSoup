@@ -73,25 +73,40 @@ def load_whatsapp(driver):
             print(
                 f"Error: WhatsApp did not load within {wait_time} seconds. Make sure you are logged in and let's try again.")
 
-            # Ask user if they want to try loading WhatsApp again
-            err_response = input("Proceed (y/n)? ")
+            is_valid_response = False
+            while not is_valid_response:
+                # Ask user if they want to try loading WhatsApp again
+                err_response = input("Proceed (y/n)? ")
 
-            # Check the user's response
-            if err_response.strip().lower() == 'y' or err_response.strip().lower() == 'yes':
-                # Ask user if they want to increment the wait time by 10 seconds
-                wait_response = input(
-                    f"Increase wait time for WhatsApp to load from {wait_time} seconds to {wait_time + 10} seconds (y/n)? ")
+                # Check the user's response
+                if err_response.strip().lower() == 'y' or err_response.strip().lower() == 'yes':
 
-                # Increase wait time by 10 seconds
-                if wait_response.strip().lower() == 'y' or wait_response.strip().lower() == 'yes':
-                    wait_time += 10
+                    while True:
+                        # Ask user if they want to increment the wait time by 10 seconds
+                        wait_response = input(
+                            f"Increase wait time for WhatsApp to load from {wait_time} seconds to {wait_time + 10} seconds (y/n)? ")
 
-                continue
+                        # Increase wait time by 10 seconds
+                        if wait_response.strip().lower() == 'y' or wait_response.strip().lower() == 'yes':
+                            wait_time += 10
+                            is_valid_response = True
+                            break
+                        elif wait_response.strip().lower() == 'n' or wait_response.strip().lower() == 'no':
+                            is_valid_response = True
+                            break
+                        else:
+                            is_valid_response = False
 
-            # Abort loading WhatsApp
-            else:
-                driver.quit()
-                return 1
+                    continue
+                # Abort loading WhatsApp
+                elif err_response.strip().lower() == 'n' or err_response.strip().lower() == 'no':
+                    is_valid_response = True
+                    driver.quit()
+                    return 1
+                # Re-prompt the question
+                else:
+                    is_valid_response = False
+                    continue
     # Success
     return 0
 
@@ -260,12 +275,17 @@ def print_chats(chats, full=False):
             f"{t.get_string(title=f'Your {row_count} Most Recent WhatsApp Chats')}\n")
 
         # Ask user if they want a longer summary
-        user_response = input(
-            "Would you like to see a complete summary of the scraped chats (y/n)? ")
-        if user_response.strip().lower() == 'y' or user_response.strip().lower() == 'yes':
-            print_chats(chats, full=True)
-        else:
-            return
+        is_valid_response = False
+        while not is_valid_response:
+            user_response = input(
+                "Would you like to see a complete summary of the scraped chats (y/n)? ")
+            if user_response.strip().lower() == 'y' or user_response.strip().lower() == 'yes':
+                print_chats(chats, full=True)
+                is_valid_response = True
+            elif user_response.strip().lower() == 'n' or user_response.strip().lower() == 'no':
+                is_valid_response = True
+            else:
+                is_valid_response = False
 
 
 def select_chat_export(chats):
