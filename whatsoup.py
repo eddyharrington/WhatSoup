@@ -343,53 +343,55 @@ def load_selected_chat(driver, selected_export):
     print("Loading messages...this may take a while.")
 
     # Click in chat window to set focus
-    conversation_window_xpath = driver.find_element_by_xpath(
+    convo_window_xpath = driver.find_element_by_xpath(
         '//*[@id="main"]/div[3]/div/div/div[3]')
-    conversation_window_xpath.click()
-    conversation_window = driver.switch_to.active_element
+    convo_window_xpath.click()
+    convo_window = driver.switch_to.active_element
 
-    # # Get all the div elements from the chat window - we use it to verify all records have loaded
-    conversation_window_child_divs = conversation_window_xpath.find_elements_by_xpath(
-        "./div")
-    child_div_count = len(conversation_window_child_divs)
-    last_div_count = child_div_count
+    # Get all the div elements from the chat window - we use it to verify all records have loaded
+    current_div_count = len(convo_window_xpath.find_elements_by_xpath("./div"))
+    previous_div_count = current_div_count
+
+    # Load all messages by hitting home and continually checking div count to verify more messages have loaded
     all_msgs_loaded = False
     attempts_succeeded = 0
     while not all_msgs_loaded:
-        # Hit home to dynamically load more messages
-        conversation_window.send_keys(Keys.HOME)
+        # Hit home
+        convo_window.send_keys(Keys.HOME)
 
-        # Make sure new messages were loaded by counting # of elements in chat window (i.e should increment every time Home button loads more messages)
+        # Track # of times we check for new messages
         attempts = 0
+
         # Counts divs to see if new messages actually loaded after hitting HOME
         while True:
             attempts += 1
 
-            # Wait for 1 sec for messages to load
+            # Wait for messages to load
             sleep(1)
 
-            # Recount the child divs to see if more messages loaded
-            conversation_window_child_divs = conversation_window_xpath.find_elements_by_xpath(
-                "./div")
-            child_div_count = len(conversation_window_child_divs)
-            if child_div_count > last_div_count:
-                last_div_count = child_div_count
+            # Recount the child divs and verify if more messages loaded
+            current_div_count = len(
+                convo_window_xpath.find_elements_by_xpath("./div"))
+            if current_div_count > previous_div_count:
+                # More messages were loaded
+                previous_div_count = current_div_count
                 attempts_succeeded += 1
                 print(
                     f"Load attempt {attempts_succeeded} succeeded!", end="\r")
+
+                # Loop back to hitting Home again to load more messages
                 break
 
             # Check if all messages have loaded (note: 'load earlier messages' div gets deleted from DOM once all messages have loaded)
-            # TODO: Alternative? Wait until div class PtQC4 exists (this is the lock / button about encrypted messages and learning more)
-            title = driver.find_element_by_xpath(
+            load_messages_div = driver.find_element_by_xpath(
                 '//*[@id="main"]/div[3]/div/div/div[2]/div').get_attribute('title')
-            if title == '':
+            if load_messages_div == '':
                 all_msgs_loaded = True
                 print(
-                    f"Success! All messages loaded after {attempts_succeeded} attempts.")
+                    f"Success! All messages loaded after {attempts_succeeded} fetches to WhatsApp.")
                 break
             else:
-                # Make sure we grant user option to exit if ~30sec of hitting home doesn't lead to end of message loading
+                # Make sure we grant user option to exit if ~30sec of hitting home doesn't result in all messages being loaded
                 if attempts >= 30:
                     print("This is taking longer than usual...")
                     while True:
