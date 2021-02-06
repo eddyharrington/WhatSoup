@@ -38,6 +38,23 @@ def main():
     else:
         print(f"Success! '{selected_export}' will be scraped and exported.")
 
+    # Find the selected chat in WhatsApp
+    found_selected_chat = find_selected_chat(driver, selected_export)
+    if found_selected_chat:
+        # Load entire chat history
+        chat_is_loaded = load_selected_chat(driver, selected_export)
+    else:
+        # TODO: Handle unsearchable chat (e.g. abort, manual intervention / input from user (note this has dependency on how we verify discovered chats in find_selected_chat))
+        pass
+
+    # Scrape the chat history
+    if chat_is_loaded:
+        print("Scraping messages...this may take a while.")
+        pass
+    else:
+        # TODO: Handle unloadable chat (e.g. internet loss, browser crash, etc.)
+        pass
+
 
 def setup_selenium():
     '''Setup Selenium to use Chrome webdriver'''
@@ -318,6 +335,123 @@ def select_chat_export(chats):
                 else:
                     print(
                         f"Uh oh! The only valid options are numbers 1 - {len(chats)}. Try again.")
+
+
+def load_selected_chat(driver, selected_export):
+    '''Loads entire chat history by repeatedly hitting the home button to fetch more data from WhatsApp'''
+
+    print("Loading messages...this may take a while.")
+
+    # Click in chat window to set focus
+    conversation_window_xpath = driver.find_element_by_xpath(
+        '//*[@id="main"]/div[3]/div/div/div[3]')
+    conversation_window_xpath.click()
+    conversation_window = driver.switch_to.active_element
+
+    # # Get all the div elements from the chat window - we use it to verify all records have loaded
+    conversation_window_child_divs = conversation_window_xpath.find_elements_by_xpath(
+        "./div")
+    child_div_count = len(conversation_window_child_divs)
+    last_div_count = child_div_count
+    all_msgs_loaded = False
+    attempts_succeeded = 0
+    while not all_msgs_loaded:
+        # Hit home to dynamically load more messages
+        conversation_window.send_keys(Keys.HOME)
+
+        # Make sure new messages were loaded by counting # of elements in chat window (i.e should increment every time Home button loads more messages)
+        attempts = 0
+        # Counts divs to see if new messages actually loaded after hitting HOME
+        while True:
+            attempts += 1
+
+            # Wait for 1 sec for messages to load
+            sleep(1)
+
+            # Recount the child divs to see if more messages loaded
+            conversation_window_child_divs = conversation_window_xpath.find_elements_by_xpath(
+                "./div")
+            child_div_count = len(conversation_window_child_divs)
+            if child_div_count > last_div_count:
+                last_div_count = child_div_count
+                attempts_succeeded += 1
+                print(
+                    f"Load attempt {attempts_succeeded} succeeded!", end="\r")
+                break
+
+            # Check if all messages have loaded (note: 'load earlier messages' div gets deleted from DOM once all messages have loaded)
+            # TODO: Alternative? Wait until div class PtQC4 exists (this is the lock / button about encrypted messages and learning more)
+            title = driver.find_element_by_xpath(
+                '//*[@id="main"]/div[3]/div/div/div[2]/div').get_attribute('title')
+            if title == '':
+                all_msgs_loaded = True
+                print(
+                    f"Success! All messages loaded after {attempts_succeeded} attempts.")
+                break
+            else:
+                # Make sure we grant user option to exit if ~30sec of hitting home doesn't lead to end of message loading
+                if attempts >= 30:
+                    print("This is taking longer than usual...")
+                    while True:
+                        response = input(
+                            "Try loading more messages (y/n)? ")
+                        if response.strip().lower() == 'n' or response.strip().lower() == 'no':
+                            print(
+                                'Error! Aborting conversation loading due to timeout.')
+                            return False
+                        elif response.strip().lower() == 'y' or response.strip().lower() == 'yes':
+                            # Reset counter
+                            print("Loading more messages...")
+                            attempts = 0
+                            break
+                        else:
+                            continue
+
+    return True
+
+
+def find_selected_chat(driver, selected_export):
+    '''Searches and loads the initial chat. Returns True/False if the chat is found and can be loaded.
+
+    Assumptions:
+    1) The chat is searchable and exists because we scraped it earlier in get_chats
+    2) The searched chat will always be the first element under the search input box
+
+    TODO Notes:
+    - If any of the assumptions are false, then this algorithm will produce errors.
+    - Failing scenarios: 1) chat name changes since get_chats scrape, 2) chat name was scraped incorrectly which produces invalid search results (e.g. unsupported characters/encoding)
+    '''
+    print(f"Searching for '{selected_export}' chat in WhatsApp...")
+
+    # Find the chat via search (TODO: currently we assume it finds the chat because we scraped the chat name already and the first result is always the selected chat. May need to add verification.)
+    chat_search = driver.find_element_by_xpath(
+        '//*[@id="side"]/div[1]/div/label/div/div[2]')
+    chat_search.click()
+    chat_search.send_keys(selected_export)
+    # TODO: replace sleeps with X attempts and promting to retry?
+    sleep(2)
+
+    # Navigate to the chat, first element below search input
+    chat_search.send_keys(Keys.DOWN)
+    sleep(2)
+
+    # Fetch the element
+    search_result = driver.switch_to.active_element
+
+    # No results were found if the active element is still the search box
+    if search_result.id == chat_search.id:
+        print(f"Error! '{selected_export}' produced no search results.")
+        return False
+    else:
+        # Compare the selected chat to actual chat name header
+        chat_name_header = driver.find_element_by_class_name('YEe1t').text
+        if chat_name_header == selected_export:
+            print(f"Success! '{selected_export}' was found.")
+            return True
+        else:
+            print(
+                f"Error! '{selected_export}' search results loaded the wrong chat: '{chat_name_header}'")
+            return False
 
 
 if __name__ == "__main__":
