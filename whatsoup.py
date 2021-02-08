@@ -42,7 +42,7 @@ def main():
     found_selected_chat = find_selected_chat(driver, selected_export)
     if found_selected_chat:
         # Load entire chat history
-        chat_is_loaded = load_selected_chat(driver, selected_export)
+        chat_is_loaded = load_selected_chat(driver)
     else:
         # TODO: Handle unsearchable chat (e.g. abort, manual intervention / input from user (note this has dependency on how we verify discovered chats in find_selected_chat))
         pass
@@ -337,7 +337,7 @@ def select_chat_export(chats):
                         f"Uh oh! The only valid options are numbers 1 - {len(chats)}. Try again.")
 
 
-def load_selected_chat(driver, selected_export):
+def load_selected_chat(driver):
     '''Loads entire chat history by repeatedly hitting the home button to fetch more data from WhatsApp'''
 
     print("Loading messages...this may take a while.")
@@ -352,9 +352,11 @@ def load_selected_chat(driver, selected_export):
     current_div_count = len(convo_window_xpath.find_elements_by_xpath("./div"))
     previous_div_count = current_div_count
 
+    # Track dates during loading progress so user knows what timeframe of messages are being loaded
+    current_load_date = None
+
     # Load all messages by hitting home and continually checking div count to verify more messages have loaded
     all_msgs_loaded = False
-    attempts_succeeded = 0
     while not all_msgs_loaded:
         # Hit home
         convo_window.send_keys(Keys.HOME)
@@ -375,9 +377,22 @@ def load_selected_chat(driver, selected_export):
             if current_div_count > previous_div_count:
                 # More messages were loaded
                 previous_div_count = current_div_count
-                attempts_succeeded += 1
-                print(
-                    f"Load attempt {attempts_succeeded} succeeded!", end="\r")
+
+                # Try grabbing date of currently loaded messages
+                try:
+                    # Use the latest date rendered in chat window
+                    current_load_date = datetime.strptime(
+                        driver.find_element_by_class_name('KpuSa').text, '%m/%d/%Y')
+                    print(
+                        f"Loaded new messages from {current_load_date.strftime('%m/%d/%Y')}", end="\r")
+                except ValueError:
+                    # Use last known date because some other info was found using the same class (i.e. chat notifications like 'Missed video call')
+                    print(
+                        f"Loaded new messages from {current_load_date.strftime('%m/%d/%Y')}", end="\r")
+                except:
+                    # Use non-date message with same char length of 35 to ensure printed line overwrites the previous print statement
+                    print(
+                        f"Loaded new messages from your chat!", end="\r")
 
                 # Loop back to hitting Home again to load more messages
                 break
@@ -387,8 +402,7 @@ def load_selected_chat(driver, selected_export):
                 '//*[@id="main"]/div[3]/div/div/div[2]/div').get_attribute('title')
             if load_messages_div == '':
                 all_msgs_loaded = True
-                print(
-                    f"Success! All messages loaded after {attempts_succeeded} fetches to WhatsApp.")
+                print("Success! Your entire chat history has been loaded.")
                 break
             else:
                 # Make sure we grant user option to exit if ~30sec of hitting home doesn't result in all messages being loaded
