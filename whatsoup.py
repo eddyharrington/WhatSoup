@@ -50,7 +50,16 @@ def main():
     # Scrape the chat history
     if chat_is_loaded:
         print("Scraping messages...this may take a while.")
-        pass
+        scraped = scrape_chat(driver)
+
+        # Write to a text file
+        with open("Output.txt", "wb") as text_file:
+            for date_write, messages_write in scraped.items():
+                for message_write in messages_write:
+                    line = f"{date_write}, {message_write['time']} - {message_write['sender']}: {message_write['message']}\n"
+                    encoded = line.encode()
+                    text_file.write(encoded)
+        print('Scrape complete, export finished')
     else:
         # TODO: Handle unloadable chat (e.g. internet loss, browser crash, etc.)
         pass
@@ -480,6 +489,441 @@ def find_selected_chat(driver, selected_export):
             print(
                 f"Error! '{selected_export}' search results loaded the wrong chat: '{chat_name_header}'")
             return False
+
+
+def scrape_chat(driver):
+    '''Turns the chat into soup and scrapes it for key export information: message sender, message date/time, message contents'''
+
+    # Make soup
+    soup = BeautifulSoup(driver.page_source, 'lxml')
+
+    # Get all messages
+    chat_pane_content = soup.find("div", "tSmQ1")
+    chat_messages = [
+        msg for msg in chat_pane_content.contents if 'message' in " ".join(msg.get('class'))]
+    chat_messages_count = len(chat_messages)
+    print(f"{chat_messages_count} messages will be scraped and exported.")
+
+    # Get users profile name
+    you = get_users_profile_name(chat_messages)
+
+    # Loop thru all chat messages, scrape chat info into a dict, and add it to a list
+    messages = []
+    messages_count = 0
+    last_msg_date = None
+    for message in chat_messages:
+        # Count messages for progress message to user and to compare expected vs actual scraped chat messages
+        messages_count += 1
+        print(
+            f"Exporting message {messages_count} of {chat_messages_count}", end="\r")
+
+        # Dictionary for holding chat information (sender, msg date/time, msg contents, and debug info)
+        message_scraped = {"datetime": None, "sender": None, "message": None, "debug": {"id": message.get(
+            'data-id'), "has_copyable_text": None, "has_selectable_text": None, "has_emoji_text": None, "has_href_text": None, "has_media": None, "has_recall": None}}
+
+        # Used for tracking types of message content
+        has_copyable_text = False
+        has_selectable_text = False
+        has_emoji_text = False
+        # TODO href needed? Currently not being used
+        has_href_text = False
+        has_media = False
+        has_recall = False
+
+        # TODO placeholders for key info in case of extra processing before inserting into dict. Can we delete and insert directly into dict?
+        message_sender = None
+        message_datetime = None
+        message_text = None
+
+        # Approach for scraping: search for everything we need in 'copyable-text' to start with, then 'selectable-text', and so on as we look for certain HTML patterns. As patterns are identified, update the message_scraped dict.
+        # Check if message has 'copyable-text' (copyable-text tends to be a container div for messages that have text in it, storing sender/datetime within data-* attributes)
+        copyable_text = message.find('div', 'copyable-text')
+        if copyable_text:
+            has_copyable_text = True
+
+            # Scrape the 'copyable-text' element for the message's sender, date/time, and contents
+            copyable_scrape = scrape_copyable(copyable_text)
+
+            # Save the sender, date/time, and msg contents
+            message_sender = copyable_scrape['sender']
+            message_datetime = copyable_scrape['datetime']
+            last_msg_date = message_datetime
+            message_text = copyable_scrape['message']
+
+            # Update the message object
+            message_scraped['datetime'] = message_datetime
+            message_scraped['sender'] = message_sender
+            message_scraped['message'] = message_text
+
+            # Check if message has 'selectable-text' (selectable-text tends to be a copyable-text child container span/div for messages that have text in it, storing the actual chat message text/emojis)
+            # Notes: span elements are used for pure text messages or text w/ emojis, and div elements are used when the message is only emoji's. Img elements also use selectable-text for emojis.
+            if copyable_text.find('span', 'selectable-text'):
+                # Span element
+                selectable_text = copyable_text.find('span', 'selectable-text')
+                message_scraped['message'] = selectable_text.text
+            else:
+                # Div element
+                selectable_text = copyable_text.find('div', 'selectable-text')
+                message_scraped['message'] = selectable_text.text
+
+            if selectable_text:
+                has_selectable_text = True
+
+                # Does it contain emojis? Emoji's are renderd as <img> elements which are child to the parent span/div container w/ selectable-text class
+                if selectable_text.find('span'):
+                    emoji_text = selectable_text.find('span').find('img')
+                else:
+                    emoji_text = None
+
+                if emoji_text:
+                    has_emoji_text = True
+
+                    # Scrape the 'selectable-text' element for messages that contain emoji's
+                    selectable_scrape = scrape_selectable(
+                        selectable_text, has_emoji=True, has_url=False)
+
+                    # Update the message object
+                    message_text = selectable_scrape['message']
+                    message_scraped['message'] = message_text
+
+                # Does it contain a URL/href?
+                if selectable_text.find('span'):
+                    url_text = selectable_text.find('span').find('href')
+                else:
+                    url_text = None
+
+                if url_text:
+                    has_href_text = True
+
+                    # TODO: placeholder condition to check if selectable has emoji's and url's...selectable_scrape method also has a placeholder for this
+                    if url_text and emoji_text:
+                        print('TODO: scrape_selectable was called incorrectly')
+
+                    # Scrape the 'selectable-text' element for messages that contain url's
+                    selectable_scrape = scrape_selectable(
+                        selectable_text, has_emoji=False, has_url=True)
+
+                    # Update the message object
+                    message_text = selectable_scrape['message']
+                    message_scraped['message'] = message_text
+
+        # Check if message was recalled / deleted by the user ('_1qQEf' is a unique class for these, typically a div that contains the 'prohibited' emoji/SVG)
+        if message.find('div', '_1qQEf'):
+            has_recall = True
+
+            # Save the sender, date/time, and msg contents
+            message_sender = you
+            message_datetime = find_chat_datetime_when_copyable_does_not_exist(
+                message, last_msg_date)
+            last_msg_date = message_datetime
+            message_text = "<You deleted this message>"
+
+            # Update the message object
+            message_scraped['datetime'] = message_datetime
+            message_scraped['sender'] = message_sender
+            message_scraped['message'] = message_text
+
+        # Media check refactor
+        # Check if the message has media
+        has_media = is_media_in_message(message)
+
+        # Get the media type
+        if has_media:
+            # Returns 'download', 'gif', 'video', or 'unknown'
+            # TODO is this even needed? I think before it was an exploration so we could do something like <{Media_type} media omitted> to enhance media logging
+            media_type = get_media_type(message)
+
+        # Scrape media based on type
+        # Does media have text?
+        if has_media and has_copyable_text:
+            # Update the message object - we just reuse existing sender/datetime info from copyable and selectable
+            message_text = f"<Media omitted> {message_scraped['message']}"
+            message_scraped['message'] = message_text
+
+        # Is it just media w/ no text?
+        if has_media and not has_copyable_text:
+
+            # Get the sender
+            if 'message-out' in message.get('class'):
+                message_scraped['sender'] = you
+            elif 'message-in' in message.get('class'):
+                media_sender = get_media_sender(message)
+                if media_sender:
+                    message_scraped['sender'] = media_sender
+                else:
+                    # TODO: this logic should ideally be contained within get_media_sender
+                    # None only occurs when the intermittent issue where the senders name does not exist in the message. Pattern so far has been a follow-up consecutive message, so we just take the last messages sender.
+                    message_scraped['sender'] = messages[-1]['sender']
+            else:
+                # TODO: placeholder handler for now - is this even needed?
+                message_scraped['sender'] = 'Unknown sender'
+
+            # Get the date/time and update the message object
+            message_datetime = find_chat_datetime_when_copyable_does_not_exist(
+                message, last_msg_date)
+            last_msg_date = message_datetime
+            message_scraped['datetime'] = message_datetime
+            message_scraped['message'] = '<Media omitted>'
+
+        # Store the message's content types (to help w/ debugging)
+        message_scraped['debug']["has_copyable_text"] = has_copyable_text
+        message_scraped['debug']["has_selectable_text"] = has_selectable_text
+        message_scraped['debug']["has_emoji_text"] = has_emoji_text
+        message_scraped['debug']["has_href_text"] = has_href_text
+        message_scraped['debug']["has_media"] = has_media
+        message_scraped['debug']["has_recall"] = has_recall
+
+        # Add the message object to list
+        messages.append(message_scraped.copy())
+
+        # Loop to the next chat message
+        continue
+
+    # Scrape summary
+    if len(messages) == chat_messages_count:
+        print(f"Success! {len(messages)} messages have been scraped.")
+    else:
+        print(
+            f"Warning! {len(messages)} messages scraped but {chat_messages_count} expected.")
+
+    # Create a dict with chat date as key and empty list as value which will store all msgs for that date
+    messages_dict = {msg_list['datetime'].strftime(
+        "%m/%d/%Y"): [] for msg_list in messages}
+
+    # Update the dict by inserting message content as values
+    for m in messages:
+        messages_dict[m['datetime'].strftime("%m/%d/%Y")].append(
+            {'time': m['datetime'].strftime("%I:%M %p"), 'sender': m['sender'], 'message': m['message']})
+
+    return messages_dict
+
+
+def get_users_profile_name(chat_messages):
+    '''Loops through all chat messages within a conversation and once it finds a sent message, scrapes the user's profile name.
+    This is necesarry for some messages where WhatsApp renders the users name as 'You' in HTML (i.e. media messages w/ no text).
+
+    The default 'export' functionality within WhatsApp renders the users profile name and never 'You'. This function helps w/ parity in that regard.
+    '''
+    you = None
+    for chat in chat_messages:
+        if 'message-out' in chat.get('class'):
+            chat_exists = chat.find('div', 'copyable-text')
+            if chat_exists:
+                you = chat.find(
+                    'div', 'copyable-text').get('data-pre-plain-text').strip()[1:-1].split('] ')[1]
+                break
+    return you
+
+
+def scrape_copyable(copyable_text):
+    '''Accepts a type of bs4.element.tag / WhatsApp div element with 'copyable-text' class and returns a dict with values for sender, date/time, and contents of the WhatsApp message'''
+
+    copyable_scrape = {'sender': None, 'datetime': None, 'message': None}
+
+    # Get the elements attributes that hold the sender and date/time values
+    copyable_attrs = copyable_text.get(
+        'data-pre-plain-text').strip()[1:-1].split('] ')
+
+    # Get the sender, date/time, and msg contents
+    copyable_scrape['sender'] = copyable_attrs[1]
+    copyable_scrape['datetime'] = datetime.strptime(
+        f"{copyable_attrs[0].split(', ')[1]} {copyable_attrs[0].split(', ')[0]}", "%m/%d/%Y %I:%M %p")
+
+    # Check for quoted/replied to and ignore that text
+    for c in copyable_text.contents:
+        # Check if the replied message contains media (element's data-testid will contain 'media') and skip it
+        if c.find(attrs={'data-testid': True}):
+            if 'media' in c.find(attrs={'data-testid': True}).get('data-testid'):
+                continue
+        # Check if the replied message is text (element's class will contain '_3fs13')
+        if c.get('class'):
+            if not '_3fs13' in c.get('class'):
+                copyable_scrape['message'] = c.text
+                break
+
+        # No quoted/replied on the current tag
+        continue
+
+    return copyable_scrape
+
+
+def scrape_selectable(selectable_text, has_emoji=False, has_url=False):
+    '''
+    Accepts a type of bs4.element.tag / WhatsApp span element with 'selectable-text' class
+    Returns a dict with message's contents that contain emoji's or URL's
+    '''
+    # TODO: Change this to return just a string? For now keep at parity with the other scrape_copyable method, which uses a dict.
+    selectable_scrape = {'message': None}
+
+    # Does it contain emojis and urls?
+    if has_emoji and has_url:
+        # TODO: need to implement handling for the situation where a message has emojis and URL
+        print(f'TODO: Need to test/implement this!')
+
+    # Does it contain emojis?
+    elif has_emoji:
+        # Construct the message manually because emoji content is broken up into many span/img elements that we need to loop through
+
+        # Was it sent or received?
+        # Messages sent - 1 span per 1 img element. Multiple emoji's in a message will produce multiple spans, each with 1 element.
+        msg_is_sent = False
+        if len(selectable_text.find_all('span')) > 1:
+            msg_is_sent = True
+        else:
+            msg_is_sent = False
+
+        if msg_is_sent:
+            emoji_content = selectable_text.find_all('span')
+            emoji_message = ""
+            for e in emoji_content:
+                if e.next.name != 'img':
+                    emoji_message += str(e.next)
+                else:
+                    emoji_message += e.next.get('alt')
+
+            selectable_scrape['message'] = emoji_message
+            return selectable_scrape
+
+        # Messages received - 1 span for all img elements. Multiple emoji's in a message will produce 1 span with >1 element.
+        else:
+            emoji_content = selectable_text.find('span').contents
+            emoji_message = ""
+            for e in emoji_content:
+                if e.name != 'img':
+                    emoji_message += str(e)
+                else:
+                    emoji_message += e.get('alt')
+
+            selectable_scrape['message'] = emoji_message
+            return selectable_scrape
+
+    # Does it contain a URL/href?
+    elif has_url:
+        url_text = selectable_text.find('span').find('href')
+        href = 'test'
+        selectable_scrape['message'] = href
+        return selectable_scrape
+
+    # TODO: handle if this method is called when both emoji/url is false
+    else:
+        return 'TODO: scrape_selectable was called incorrectly'
+
+
+def find_chat_datetime_when_copyable_does_not_exist(message, last_msg_date):
+    '''Ugly way to deal with figuring out a messages date/time when there's no 'copyable-text' attribute e.g. deleted messages, media w/ no text, etc.'''
+
+    # Get date/time (note: every message renders time in a span w/ class '_2JNr-')
+    if message.find('span', '_2JNr-'):
+        # Get the hour/minute time from the media message
+        message_time = message.find('span', '_2JNr-').text
+
+        # Get the sibling div holding the latest chat date, otherwise if that doesn't exist then grab the last msg date
+        try:
+            # Check if the chat row is a date (a div element w/ 'focusable' class and no 'data-id' attribute)
+            sibling_date = message.find_previous_sibling(
+                "div", attrs={'data-id': False}).text
+
+            # Try converting to a date/time object
+            media_message_datetime = datetime.strptime(
+                f"{sibling_date} {message_time}", "%m/%d/%Y %I:%M %p")
+
+            # Build date/time object
+            message_datetime = datetime.strptime(
+                f"{media_message_datetime.strftime('%#m/%#d/%Y')} {media_message_datetime.strftime('%I:%M %p')}", "%m/%d/%Y %I:%M %p")
+
+            return message_datetime
+
+        # Otherwise last message's date/time (note this could assign the wrong date if for example the last message was 1+ days ago)
+        except:
+            message_datetime = datetime.strptime(
+                f"{last_msg_date.strftime('%#m/%#d/%Y')} {message_time}", "%m/%d/%Y %I:%M %p")
+
+            return message_datetime
+
+    else:
+        return None
+
+
+def is_media_in_message(message):
+    '''Analyze the soup for known media flags'''
+    # First check for data-testid attributes containing 'media' (this covers gifs, videos, downloadable content)
+    # TODO: with the 'blanket search' below do we even need this anymore?
+    possible_media_spans = message.find_all(attrs={'data-testid': True})
+    for span in possible_media_spans:
+        # Media types are stored in 'data-testid' attribute
+        media_attr = span.get('data-testid')
+
+        if 'media' in media_attr:
+            return True
+        else:
+            continue
+
+    # Then check one of the blanket media classes which covers the above and other things like pdfs, txt files, contact cards, etc.
+    if message.get('class'):
+        # GIFs, image attachments, txt files, pdf files, contact cards
+        if '_2FNAC' in message.get('class'):
+            return True
+
+        # Voice messages which are nested in child divs so we need to scan all contents
+        for c in message.contents:
+            if c.get('class'):
+                if '_2Irzd' in c.get('class'):
+                    return True
+
+    return False
+
+
+def get_media_type(message):
+    '''
+    Returns the type of media that a message contains such as gif, video, downloadable images, etc.
+    '''
+    possible_media_spans = message.find_all(attrs={'data-testid': True})
+    for span in possible_media_spans:
+        # Store media type because each type has different soup
+        # media_type_download, media_type_gif, media_type_video = False, False, False
+
+        # Make sure media exists
+        if is_media_in_message(message):
+            # Media types are stored in 'data-testid' attribute
+            media_attr = span.get('data-testid')
+
+            # Return what type of media
+            if media_attr == 'media-download':
+                return 'download'
+            elif media_attr == 'media-gif':
+                return 'gif'
+            elif media_attr == 'media-play':
+                return 'video'
+            else:
+                return 'unknown'
+        else:
+            return None
+
+
+def get_media_sender(message):
+    '''Searches for and returns a recieved (message-in) media message for the senders name'''
+
+    # First check to see if senders name is stored in a span's aria-label attribute (note: this seems to be where it's stored if the persons name is just text / no emoji)
+    spans = message.find_all('span')
+    sender = None
+    for span in spans:
+        if span.get('aria-label'):
+            # Last char in aria-label is always colon after the senders name
+            if span.get('aria-label') != 'Voice message':
+                return span.get('aria-label')[:-1]
+        else:
+            continue
+
+    # Then check to see if senders name is stored in a specific span class that seems to be for names that include emojis
+    # TODO: note, currently this excludes any emoji's within the span since they are stored in <img> elements within the span, but in the future
+    # we can look into building a helper function that builds a string for the name. Getting 1 <img> tags emoji: message.find('span', '_19038 _3cwQ7 _1VzZY').find('img', {'alt': True}).get('alt')
+    if message.find('span', '_19038 _3cwQ7 _1VzZY'):
+        return message.find('span', '_19038 _3cwQ7 _1VzZY').text.strip()
+    else:
+        # Currently this returns none when the sender's message has media, no-text, and is a follow-up consecutive message (doesn't have tail-in)
+        # There is NO sender name in this situation so we have to either ascend thru the message siblings and find a previous one, or just take the
+        # last message's sender in our structure
+        return None
 
 
 if __name__ == "__main__":
