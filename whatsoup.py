@@ -378,17 +378,29 @@ def load_selected_chat(driver):
                 # More messages were loaded
                 previous_div_count = current_div_count
 
-                # Try grabbing date of currently loaded messages
+                # Try grabbing date of currently loaded messages (always the latest KpuSa element rendereded after more messages are loaded)
+                # TODO: somewhat expensive use of code for what could be an easier way to show progress during scraping. Keep this long term?
                 try:
-                    # Use the latest date rendered in chat window
+                    # Use a date rendered in chat window such as 1/1/2021
                     current_load_date = datetime.strptime(
                         driver.find_element_by_class_name('KpuSa').text, '%m/%d/%Y')
                     print(
                         f"Loaded new messages from {current_load_date.strftime('%m/%d/%Y')}", end="\r")
                 except ValueError:
-                    # Use last known date because some other info was found using the same class (i.e. chat notifications like 'Missed video call')
-                    print(
-                        f"Loaded new messages from {current_load_date.strftime('%m/%d/%Y')}", end="\r")
+                    # Use a non-date string value such as Yesterday/Today/Monday/etc, skip over chat event items like missed calls, name updates, etc.
+
+                    # Verify the expected date element is not a chat event by checking for single vs multiple words
+                    possible_date = driver.find_element_by_class_name(
+                        'KpuSa').text.split(' ')
+                    if len(possible_date) == 1:
+                        # Skip empty strings
+                        if possible_date[0]:
+                            print(
+                                f"Loaded new messages from {possible_date[0].title()}", end="\r")
+                    else:
+                        # For group events / sentences, use non-date message with same char length of 35 to ensure printed line overwrites the previous print statement
+                        print(
+                            f"Loaded new messages from your chat!", end="\r")
                 except:
                     # Use non-date message with same char length of 35 to ensure printed line overwrites the previous print statement
                     print(
