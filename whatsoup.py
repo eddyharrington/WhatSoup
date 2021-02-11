@@ -518,15 +518,24 @@ def scrape_chat(driver):
             f"Exporting message {messages_count} of {chat_messages_count}", end="\r")
 
         # Dictionary for holding chat information (sender, msg date/time, msg contents, and debug info)
-        message_scraped = {"datetime": None, "sender": None, "message": None, "debug": {"id": message.get(
-            'data-id'), "has_copyable_text": None, "has_selectable_text": None, "has_emoji_text": None, "has_href_text": None, "has_media": None, "has_recall": None}}
+        message_scraped = {
+            "datetime": None,
+            "sender": None,
+            "message": None,
+            "debug": {
+                "id": message.get('data-id'),
+                "has_copyable_text": None,
+                "has_selectable_text": None,
+                "has_emoji_text": None,
+                "has_media": None,
+                "has_recall": None
+            }
+        }
 
         # Used for tracking types of message content
         has_copyable_text = False
         has_selectable_text = False
         has_emoji_text = False
-        # TODO href needed? Currently not being used
-        has_href_text = False
         has_media = False
         has_recall = False
 
@@ -580,28 +589,7 @@ def scrape_chat(driver):
 
                     # Scrape the 'selectable-text' element for messages that contain emoji's
                     selectable_scrape = scrape_selectable(
-                        selectable_text, has_emoji=True, has_url=False)
-
-                    # Update the message object
-                    message_text = selectable_scrape['message']
-                    message_scraped['message'] = message_text
-
-                # Does it contain a URL/href?
-                if selectable_text.find('span'):
-                    url_text = selectable_text.find('span').find('href')
-                else:
-                    url_text = None
-
-                if url_text:
-                    has_href_text = True
-
-                    # TODO: placeholder condition to check if selectable has emoji's and url's...selectable_scrape method also has a placeholder for this
-                    if url_text and emoji_text:
-                        print('TODO: scrape_selectable was called incorrectly')
-
-                    # Scrape the 'selectable-text' element for messages that contain url's
-                    selectable_scrape = scrape_selectable(
-                        selectable_text, has_emoji=False, has_url=True)
+                        selectable_text, has_emoji=True)
 
                     # Update the message object
                     message_text = selectable_scrape['message']
@@ -669,7 +657,6 @@ def scrape_chat(driver):
         message_scraped['debug']["has_copyable_text"] = has_copyable_text
         message_scraped['debug']["has_selectable_text"] = has_selectable_text
         message_scraped['debug']["has_emoji_text"] = has_emoji_text
-        message_scraped['debug']["has_href_text"] = has_href_text
         message_scraped['debug']["has_media"] = has_media
         message_scraped['debug']["has_recall"] = has_recall
 
@@ -747,19 +734,14 @@ def scrape_copyable(copyable_text):
     return copyable_scrape
 
 
-def scrape_selectable(selectable_text, has_emoji=False, has_url=False):
-    '''Returns a dict with message's contents that contain emoji's or URL's'''
+def scrape_selectable(selectable_text, has_emoji=False):
+    '''Returns a dict with message's contents that contain emojis'''
 
     # TODO: Change this to return just a string? For now keep at parity with the other scrape_copyable method, which uses a dict.
     selectable_scrape = {'message': None}
 
-    # Does it contain emojis and urls?
-    if has_emoji and has_url:
-        # TODO: need to implement handling for the situation where a message has emojis and URL
-        print(f'TODO: Need to test/implement this!')
-
     # Does it contain emojis?
-    elif has_emoji:
+    if has_emoji:
         # Construct the message manually because emoji content is broken up into many span/img elements that we need to loop through
 
         # Was it sent or received?
@@ -795,14 +777,7 @@ def scrape_selectable(selectable_text, has_emoji=False, has_url=False):
             selectable_scrape['message'] = emoji_message
             return selectable_scrape
 
-    # Does it contain a URL/href?
-    elif has_url:
-        url_text = selectable_text.find('span').find('href')
-        href = 'test'
-        selectable_scrape['message'] = href
-        return selectable_scrape
-
-    # TODO: handle if this method is called when both emoji/url is false
+    # TODO: handle if this method is called when emoji is false
     else:
         return 'TODO: scrape_selectable was called incorrectly'
 
