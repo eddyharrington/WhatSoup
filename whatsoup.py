@@ -53,6 +53,7 @@ def main():
         scraped = scrape_chat(driver)
 
         # Write to a text file
+        # TODO file name should be 'WhatsApp chat with Eddy Harrington.txt'
         with open("Output.txt", "wb") as text_file:
             for date_write, messages_write in scraped.items():
                 for message_write in messages_write:
@@ -497,10 +498,9 @@ def scrape_chat(driver):
     # Make soup
     soup = BeautifulSoup(driver.page_source, 'lxml')
 
-    # Get all messages
-    chat_pane_content = soup.find("div", "tSmQ1")
+    # Get all content from chat messages pane (div w/ class 'tSmQ1'), search for and only keep HTML elements which contain messages
     chat_messages = [
-        msg for msg in chat_pane_content.contents if 'message' in " ".join(msg.get('class'))]
+        msg for msg in soup.find("div", "tSmQ1").contents if 'message' in " ".join(msg.get('class'))]
     chat_messages_count = len(chat_messages)
     print(f"{chat_messages_count} messages will be scraped and exported.")
 
@@ -699,11 +699,11 @@ def scrape_chat(driver):
 
 
 def get_users_profile_name(chat_messages):
-    '''Loops through all chat messages within a conversation and once it finds a sent message, scrapes the user's profile name.
-    This is necesarry for some messages where WhatsApp renders the users name as 'You' in HTML (i.e. media messages w/ no text).
+    '''Returns the user's profile name so we can determine who 'You' is in the conversation.
 
-    The default 'export' functionality within WhatsApp renders the users profile name and never 'You'. This function helps w/ parity in that regard.
+    WhatsApp's default 'export' fucntionality renders the users profile name and never 'You'.
     '''
+
     you = None
     for chat in chat_messages:
         if 'message-out' in chat.get('class'):
@@ -716,7 +716,7 @@ def get_users_profile_name(chat_messages):
 
 
 def scrape_copyable(copyable_text):
-    '''Accepts a type of bs4.element.tag / WhatsApp div element with 'copyable-text' class and returns a dict with values for sender, date/time, and contents of the WhatsApp message'''
+    '''Returns a dict with values for sender, date/time, and contents of the WhatsApp message'''
 
     copyable_scrape = {'sender': None, 'datetime': None, 'message': None}
 
@@ -748,10 +748,8 @@ def scrape_copyable(copyable_text):
 
 
 def scrape_selectable(selectable_text, has_emoji=False, has_url=False):
-    '''
-    Accepts a type of bs4.element.tag / WhatsApp span element with 'selectable-text' class
-    Returns a dict with message's contents that contain emoji's or URL's
-    '''
+    '''Returns a dict with message's contents that contain emoji's or URL's'''
+
     # TODO: Change this to return just a string? For now keep at parity with the other scrape_copyable method, which uses a dict.
     selectable_scrape = {'message': None}
 
@@ -810,7 +808,7 @@ def scrape_selectable(selectable_text, has_emoji=False, has_url=False):
 
 
 def find_chat_datetime_when_copyable_does_not_exist(message, last_msg_date):
-    '''Ugly way to deal with figuring out a messages date/time when there's no 'copyable-text' attribute e.g. deleted messages, media w/ no text, etc.'''
+    '''Returns a message's date/time when there's no 'copyable-text' attribute within the message e.g. deleted messages, media w/ no text, etc.'''
 
     # Get date/time (note: every message renders time in a span w/ class '_2JNr-')
     if message.find('span', '_2JNr-'):
@@ -845,7 +843,8 @@ def find_chat_datetime_when_copyable_does_not_exist(message, last_msg_date):
 
 
 def is_media_in_message(message):
-    '''Analyze the soup for known media flags'''
+    '''Returns True if media is discovered within the message by checking the soup for known media flags. If not, it returns False.'''
+
     # First check for data-testid attributes containing 'media' (this covers gifs, videos, downloadable content)
     # TODO: with the 'blanket search' below do we even need this anymore?
     possible_media_spans = message.find_all(attrs={'data-testid': True})
@@ -874,9 +873,8 @@ def is_media_in_message(message):
 
 
 def get_media_type(message):
-    '''
-    Returns the type of media that a message contains such as gif, video, downloadable images, etc.
-    '''
+    '''Returns the type of media that a message contains such as gif, video, downloadable images, etc.'''
+
     possible_media_spans = message.find_all(attrs={'data-testid': True})
     for span in possible_media_spans:
         # Store media type because each type has different soup
@@ -901,7 +899,7 @@ def get_media_type(message):
 
 
 def get_media_sender(message):
-    '''Searches for and returns a recieved (message-in) media message for the senders name'''
+    '''Returns the sender's name for a message that has media in it'''
 
     # First check to see if senders name is stored in a span's aria-label attribute (note: this seems to be where it's stored if the persons name is just text / no emoji)
     spans = message.find_all('span')
