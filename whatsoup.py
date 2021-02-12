@@ -539,11 +539,6 @@ def scrape_chat(driver):
         has_media = False
         has_recall = False
 
-        # TODO placeholders for key info in case of extra processing before inserting into dict. Can we delete and insert directly into dict?
-        message_sender = None
-        message_datetime = None
-        message_text = None
-
         # Approach for scraping: search for everything we need in 'copyable-text' to start with, then 'selectable-text', and so on as we look for certain HTML patterns. As patterns are identified, update the message_scraped dict.
         # Check if message has 'copyable-text' (copyable-text tends to be a container div for messages that have text in it, storing sender/datetime within data-* attributes)
         copyable_text = message.find('div', 'copyable-text')
@@ -553,16 +548,11 @@ def scrape_chat(driver):
             # Scrape the 'copyable-text' element for the message's sender, date/time, and contents
             copyable_scrape = scrape_copyable(copyable_text)
 
-            # Save the sender, date/time, and msg contents
-            message_sender = copyable_scrape['sender']
-            message_datetime = copyable_scrape['datetime']
-            last_msg_date = message_datetime
-            message_text = copyable_scrape['message']
-
             # Update the message object
-            message_scraped['datetime'] = message_datetime
-            message_scraped['sender'] = message_sender
-            message_scraped['message'] = message_text
+            message_scraped['datetime'] = copyable_scrape['datetime']
+            last_msg_date = message_scraped['datetime']
+            message_scraped['sender'] = copyable_scrape['sender']
+            message_scraped['message'] = copyable_scrape['message']
 
             # Check if message has 'selectable-text' (selectable-text tends to be a copyable-text child container span/div for messages that have text in it, storing the actual chat message text/emojis)
             # Notes: span elements are used for pure text messages or text w/ emojis, and div elements are used when the message is only emoji's. Img elements also use selectable-text for emojis.
@@ -592,24 +582,18 @@ def scrape_chat(driver):
                         selectable_text, has_emoji=True)
 
                     # Update the message object
-                    message_text = selectable_scrape['message']
-                    message_scraped['message'] = message_text
+                    message_scraped['message'] = selectable_scrape['message']
 
         # Check if message was recalled / deleted by the user ('_1qQEf' is a unique class for these, typically a div that contains the 'prohibited' emoji/SVG)
         if message.find('div', '_1qQEf'):
             has_recall = True
 
-            # Save the sender, date/time, and msg contents
-            message_sender = you
-            message_datetime = find_chat_datetime_when_copyable_does_not_exist(
-                message, last_msg_date)
-            last_msg_date = message_datetime
-            message_text = "<You deleted this message>"
-
             # Update the message object
-            message_scraped['datetime'] = message_datetime
-            message_scraped['sender'] = message_sender
-            message_scraped['message'] = message_text
+            message_scraped['datetime'] = find_chat_datetime_when_copyable_does_not_exist(
+                message, last_msg_date)
+            last_msg_date = message_scraped['datetime']
+            message_scraped['sender'] = you
+            message_scraped['message'] = "<You deleted this message>"
 
         # Media check refactor
         # Check if the message has media
@@ -625,8 +609,7 @@ def scrape_chat(driver):
         # Does media have text?
         if has_media and has_copyable_text:
             # Update the message object - we just reuse existing sender/datetime info from copyable and selectable
-            message_text = f"<Media omitted> {message_scraped['message']}"
-            message_scraped['message'] = message_text
+            message_scraped['message'] = f"<Media omitted> {message_scraped['message']}"
 
         # Is it just media w/ no text?
         if has_media and not has_copyable_text:
@@ -647,10 +630,9 @@ def scrape_chat(driver):
                 message_scraped['sender'] = 'Unknown sender'
 
             # Get the date/time and update the message object
-            message_datetime = find_chat_datetime_when_copyable_does_not_exist(
+            message_scraped['datetime'] = find_chat_datetime_when_copyable_does_not_exist(
                 message, last_msg_date)
-            last_msg_date = message_datetime
-            message_scraped['datetime'] = message_datetime
+            last_msg_date = message_scraped['datetime']
             message_scraped['message'] = '<Media omitted>'
 
         # Store the message's content types (to help w/ debugging)
