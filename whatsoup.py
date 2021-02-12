@@ -517,33 +517,24 @@ def scrape_chat(driver):
         print(
             f"Exporting message {messages_count} of {chat_messages_count}", end="\r")
 
-        # Dictionary for holding chat information (sender, msg date/time, msg contents, and debug info)
+        # Dictionary for holding chat information (sender, msg date/time, msg contents, message content types, and data-id for debugging)
         message_scraped = {
-            "datetime": None,
             "sender": None,
+            "datetime": None,
             "message": None,
-            "debug": {
-                "id": message.get('data-id'),
-                "has_copyable_text": None,
-                "has_selectable_text": None,
-                "has_emoji_text": None,
-                "has_media": None,
-                "has_recall": None
-            }
+            "has_copyable_text": False,
+            "has_selectable_text": False,
+            "has_emoji_text": False,
+            "has_media": False,
+            "has_recall": False,
+            "data-id": message.get('data-id')
         }
-
-        # Used for tracking types of message content
-        has_copyable_text = False
-        has_selectable_text = False
-        has_emoji_text = False
-        has_media = False
-        has_recall = False
 
         # Approach for scraping: search for everything we need in 'copyable-text' to start with, then 'selectable-text', and so on as we look for certain HTML patterns. As patterns are identified, update the message_scraped dict.
         # Check if message has 'copyable-text' (copyable-text tends to be a container div for messages that have text in it, storing sender/datetime within data-* attributes)
         copyable_text = message.find('div', 'copyable-text')
         if copyable_text:
-            has_copyable_text = True
+            message_scraped['has_copyable_text'] = True
 
             # Scrape the 'copyable-text' element for the message's sender, date/time, and contents
             copyable_scrape = scrape_copyable(copyable_text)
@@ -566,7 +557,7 @@ def scrape_chat(driver):
                 message_scraped['message'] = selectable_text.text
 
             if selectable_text:
-                has_selectable_text = True
+                message_scraped['has_selectable_text'] = True
 
                 # Does it contain emojis? Emoji's are renderd as <img> elements which are child to the parent span/div container w/ selectable-text class
                 if selectable_text.find('span'):
@@ -575,7 +566,7 @@ def scrape_chat(driver):
                     emoji_text = None
 
                 if emoji_text:
-                    has_emoji_text = True
+                    message_scraped['has_emoji_text'] = True
 
                     # Scrape the 'selectable-text' element for messages that contain emoji's
                     selectable_scrape = scrape_selectable(
@@ -586,7 +577,7 @@ def scrape_chat(driver):
 
         # Check if message was recalled / deleted by the user ('_1qQEf' is a unique class for these, typically a div that contains the 'prohibited' emoji/SVG)
         if message.find('div', '_1qQEf'):
-            has_recall = True
+            message_scraped['has_recall'] = True
 
             # Update the message object
             message_scraped['datetime'] = find_chat_datetime_when_copyable_does_not_exist(
@@ -595,24 +586,23 @@ def scrape_chat(driver):
             message_scraped['sender'] = you
             message_scraped['message'] = "<You deleted this message>"
 
-        # Media check refactor
         # Check if the message has media
-        has_media = is_media_in_message(message)
+        message_scraped['has_media'] = is_media_in_message(message)
 
         # Get the media type
-        if has_media:
+        if message_scraped['has_media']:
             # Returns 'download', 'gif', 'video', or 'unknown'
             # TODO is this even needed? I think before it was an exploration so we could do something like <{Media_type} media omitted> to enhance media logging
             media_type = get_media_type(message)
 
         # Scrape media based on type
         # Does media have text?
-        if has_media and has_copyable_text:
+        if message_scraped['has_media'] and message_scraped['has_copyable_text']:
             # Update the message object - we just reuse existing sender/datetime info from copyable and selectable
             message_scraped['message'] = f"<Media omitted> {message_scraped['message']}"
 
         # Is it just media w/ no text?
-        if has_media and not has_copyable_text:
+        if message_scraped['has_media'] and not message_scraped['has_copyable_text']:
 
             # Get the sender
             if 'message-out' in message.get('class'):
@@ -634,13 +624,6 @@ def scrape_chat(driver):
                 message, last_msg_date)
             last_msg_date = message_scraped['datetime']
             message_scraped['message'] = '<Media omitted>'
-
-        # Store the message's content types (to help w/ debugging)
-        message_scraped['debug']["has_copyable_text"] = has_copyable_text
-        message_scraped['debug']["has_selectable_text"] = has_selectable_text
-        message_scraped['debug']["has_emoji_text"] = has_emoji_text
-        message_scraped['debug']["has_media"] = has_media
-        message_scraped['debug']["has_recall"] = has_recall
 
         # Add the message object to list
         messages.append(message_scraped.copy())
