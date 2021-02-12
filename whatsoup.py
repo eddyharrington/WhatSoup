@@ -546,34 +546,25 @@ def scrape_chat(driver):
             message_scraped['message'] = copyable_scrape['message']
 
             # Check if message has 'selectable-text' (selectable-text tends to be a copyable-text child container span/div for messages that have text in it, storing the actual chat message text/emojis)
-            # Notes: span elements are used for pure text messages or text w/ emojis, and div elements are used when the message is only emoji's. Img elements also use selectable-text for emojis.
             if copyable_text.find('span', 'selectable-text'):
                 # Span element
-                selectable_text = copyable_text.find('span', 'selectable-text')
-                message_scraped['message'] = selectable_text.text
+                selectable_text = copyable_text.find(
+                    'span', 'selectable-text')
             else:
                 # Div element
-                selectable_text = copyable_text.find('div', 'selectable-text')
-                message_scraped['message'] = selectable_text.text
+                selectable_text = copyable_text.find(
+                    'div', 'selectable-text')
 
             if selectable_text:
                 message_scraped['has_selectable_text'] = True
 
                 # Does it contain emojis? Emoji's are renderd as <img> elements which are child to the parent span/div container w/ selectable-text class
-                if selectable_text.find('span'):
-                    emoji_text = selectable_text.find('span').find('img')
-                else:
-                    emoji_text = None
-
-                if emoji_text:
+                if selectable_text.find('img'):
                     message_scraped['has_emoji_text'] = True
 
-                    # Scrape the 'selectable-text' element for messages that contain emoji's
-                    selectable_scrape = scrape_selectable(
-                        selectable_text, has_emoji=True)
-
-                    # Update the message object
-                    message_scraped['message'] = selectable_scrape['message']
+                # Get message
+                message_scraped['message'] = scrape_selectable(
+                    selectable_text, message_scraped['has_emoji_text'])
 
         # Check if message was recalled / deleted by the user ('_1qQEf' is a unique class for these, typically a div that contains the 'prohibited' emoji/SVG)
         if message.find('div', '_1qQEf'):
@@ -700,51 +691,35 @@ def scrape_copyable(copyable_text):
 
 
 def scrape_selectable(selectable_text, has_emoji=False):
-    '''Returns a dict with message's contents that contain emojis'''
-
-    # TODO: Change this to return just a string? For now keep at parity with the other scrape_copyable method, which uses a dict.
-    selectable_scrape = {'message': None}
+    '''Returns message contents of a chat by checking for and handling emojis'''
 
     # Does it contain emojis?
     if has_emoji:
         # Construct the message manually because emoji content is broken up into many span/img elements that we need to loop through
+        # Loop over every child span of selectable-text, as these wrap the text and emojis/imgs
+        message = ''
+        for span in selectable_text.find_all('span'):
 
-        # Was it sent or received?
-        # Messages sent - 1 span per 1 img element. Multiple emoji's in a message will produce multiple spans, each with 1 element.
-        msg_is_sent = False
-        if len(selectable_text.find_all('span')) > 1:
-            msg_is_sent = True
-        else:
-            msg_is_sent = False
-
-        if msg_is_sent:
-            emoji_content = selectable_text.find_all('span')
-            emoji_message = ""
-            for e in emoji_content:
-                if e.next.name != 'img':
-                    emoji_message += str(e.next)
+            # Loop over every child element of the span to construct the message
+            for element in span.contents:
+                # Check what kind of element it is
+                if element.name == None:
+                    # Text, ignoring empty strings
+                    if element == ' ':
+                        continue
+                    else:
+                        message += str(element)
+                elif element.name == 'img':
+                    # Emoji
+                    message += element.get('alt')
                 else:
-                    emoji_message += e.next.get('alt')
+                    # Skip other elements (note: have not found any occurrences of this happening...yet)
+                    continue
 
-            selectable_scrape['message'] = emoji_message
-            return selectable_scrape
-
-        # Messages received - 1 span for all img elements. Multiple emoji's in a message will produce 1 span with >1 element.
-        else:
-            emoji_content = selectable_text.find('span').contents
-            emoji_message = ""
-            for e in emoji_content:
-                if e.name != 'img':
-                    emoji_message += str(e)
-                else:
-                    emoji_message += e.get('alt')
-
-            selectable_scrape['message'] = emoji_message
-            return selectable_scrape
-
-    # TODO: handle if this method is called when emoji is false
+        return message
     else:
-        return 'TODO: scrape_selectable was called incorrectly'
+        # Return the text only
+        return selectable_text.text
 
 
 def find_chat_datetime_when_copyable_does_not_exist(message, last_msg_date):
