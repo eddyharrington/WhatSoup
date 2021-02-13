@@ -580,13 +580,6 @@ def scrape_chat(driver):
         # Check if the message has media
         message_scraped['has_media'] = is_media_in_message(message)
 
-        # Get the media type
-        if message_scraped['has_media']:
-            # Returns 'download', 'gif', 'video', or 'unknown'
-            # TODO is this even needed? I think before it was an exploration so we could do something like <{Media_type} media omitted> to enhance media logging
-            media_type = get_media_type(message)
-
-        # Scrape media based on type
         # Does media have text?
         if message_scraped['has_media'] and message_scraped['has_copyable_text']:
             # Update the message object - we just reuse existing sender/datetime info from copyable and selectable
@@ -785,32 +778,6 @@ def is_media_in_message(message):
                     return True
 
     return False
-
-
-def get_media_type(message):
-    '''Returns the type of media that a message contains such as gif, video, downloadable images, etc.'''
-
-    possible_media_spans = message.find_all(attrs={'data-testid': True})
-    for span in possible_media_spans:
-        # Store media type because each type has different soup
-        # media_type_download, media_type_gif, media_type_video = False, False, False
-
-        # Make sure media exists
-        if is_media_in_message(message):
-            # Media types are stored in 'data-testid' attribute
-            media_attr = span.get('data-testid')
-
-            # Return what type of media
-            if media_attr == 'media-download':
-                return 'download'
-            elif media_attr == 'media-gif':
-                return 'gif'
-            elif media_attr == 'media-play':
-                return 'video'
-            else:
-                return 'unknown'
-        else:
-            return None
 
 
 def get_media_sender(message):
