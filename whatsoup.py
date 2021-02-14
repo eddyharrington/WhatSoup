@@ -555,6 +555,7 @@ def scrape_chat(driver):
                 selectable_text = copyable_text.find(
                     'div', 'selectable-text')
 
+            # Check if message has emojis and overwrite the message object w/ updated chat message
             if selectable_text:
                 message_scraped['has_selectable_text'] = True
 
@@ -562,7 +563,7 @@ def scrape_chat(driver):
                 if selectable_text.find('img'):
                     message_scraped['has_emoji_text'] = True
 
-                # Get message
+                # Get message from selectable and overwrite existing chat message
                 message_scraped['message'] = scrape_selectable(
                     selectable_text, message_scraped['has_emoji_text'])
 
@@ -579,35 +580,32 @@ def scrape_chat(driver):
 
         # Check if the message has media
         message_scraped['has_media'] = is_media_in_message(message)
+        if message_scraped['has_media']:
+            # Check if it also has text
+            if message_scraped['has_copyable_text']:
+                # Update chat message w/ media omission (note that copyable has already scraped the sender + datetime)
+                message_scraped['message'] = f"<Media omitted> {message_scraped['message']}"
 
-        # Does media have text?
-        if message_scraped['has_media'] and message_scraped['has_copyable_text']:
-            # Update the message object - we just reuse existing sender/datetime info from copyable and selectable
-            message_scraped['message'] = f"<Media omitted> {message_scraped['message']}"
-
-        # Is it just media w/ no text?
-        if message_scraped['has_media'] and not message_scraped['has_copyable_text']:
-
-            # Get the sender
-            if 'message-out' in message.get('class'):
-                message_scraped['sender'] = you
-            elif 'message-in' in message.get('class'):
-                media_sender = get_media_sender(message)
-                if media_sender:
-                    message_scraped['sender'] = media_sender
-                else:
-                    # TODO: this logic should ideally be contained within get_media_sender
-                    # None only occurs when the intermittent issue where the senders name does not exist in the message. Pattern so far has been a follow-up consecutive message, so we just take the last messages sender.
-                    message_scraped['sender'] = messages[-1]['sender']
             else:
-                # TODO: placeholder handler for now - is this even needed?
-                message_scraped['sender'] = 'Unknown sender'
+                # Without copyable, we need to scrape the sender in a different way
+                if 'message-out' in message.get('class'):
+                    # Message was sent by the user
+                    message_scraped['sender'] = you
+                elif 'message-in' in message.get('class'):
+                    # Message was sent from a friend of the user
+                    message_scraped['sender'] = find_media_sender_when_copyable_does_not_exist(
+                        message)
+                    if not message_scraped['sender']:
+                        # Only occurs intermittently when the senders name does not exist in the message - so we take the last message's sender
+                        message_scraped['sender'] = messages[-1]['sender']
+                else:
+                    pass
 
-            # Get the date/time and update the message object
-            message_scraped['datetime'] = find_chat_datetime_when_copyable_does_not_exist(
-                message, last_msg_date)
-            last_msg_date = message_scraped['datetime']
-            message_scraped['message'] = '<Media omitted>'
+                # Get the date/time and update the message object
+                message_scraped['datetime'] = find_chat_datetime_when_copyable_does_not_exist(
+                    message, last_msg_date)
+                last_msg_date = message_scraped['datetime']
+                message_scraped['message'] = '<Media omitted>'
 
         # Add the message object to list
         messages.append(message_scraped.copy())
@@ -780,29 +778,52 @@ def is_media_in_message(message):
     return False
 
 
-def get_media_sender(message):
-    '''Returns the sender's name for a message that has media in it'''
+def find_media_sender_when_copyable_does_not_exist(message):
+    '''Returns a sender's name when there's no 'copyable-text' attribute within the message'''
 
-    # First check to see if senders name is stored in a span's aria-label attribute (note: this seems to be where it's stored if the persons name is just text / no emoji)
+    # Check to see if senders name is stored in a span's aria-label attribute (note: this seems to be where it's stored if the persons name is just text / no emoji)
     spans = message.find_all('span')
     sender = None
+    has_emoji = False
     for span in spans:
         if span.get('aria-label'):
             # Last char in aria-label is always colon after the senders name
             if span.get('aria-label') != 'Voice message':
                 return span.get('aria-label')[:-1]
+        elif span.find('img'):
+            # Emoji is in name...TODO: below is copy/pasted from selectable. Refactor these two somehow?
+            has_emoji = True
+            break
         else:
             continue
 
-    # Then check to see if senders name is stored in a specific span class that seems to be for names that include emojis
-    # TODO: note, currently this excludes any emoji's within the span since they are stored in <img> elements within the span, but in the future
-    # we can look into building a helper function that builds a string for the name. Getting 1 <img> tags emoji: message.find('span', '_19038 _3cwQ7 _1VzZY').find('img', {'alt': True}).get('alt')
-    if message.find('span', '_19038 _3cwQ7 _1VzZY'):
-        return message.find('span', '_19038 _3cwQ7 _1VzZY').text.strip()
+    # Manually construct the senders name if it has an emoji by building a string from span.text and img/emoji tags
+    if has_emoji:
+        # Get all elements from container span that uses a unique class for names that contain emojis
+        emoji_name_elements = message.find('span', '_19038 _3cwQ7 _1VzZY')
+
+        # Loop over every child element of the span to construct the sender
+        name = ''
+        for element in emoji_name_elements.contents:
+            # Check what kind of element it is
+            if element.name == None:
+                # Text, ignoring empty strings
+                if element == ' ':
+                    continue
+                else:
+                    name += str(element)
+            elif element.name == 'img':
+                # Emoji
+                name += element.get('alt')
+            else:
+                # Skip other elements (note: have not found any occurrences of this happening...yet)
+                continue
+
+        return name
+
+    # There is no sender name in the message - pattern for this seems to be 1) sender name has no emoji, 2) msg has media, 3) msg does not have text, 4) msg is a follow-up / consecutive message (doesn't have tail-in icon in message span/svg)
     else:
-        # Currently this returns none when the sender's message has media, no-text, and is a follow-up consecutive message (doesn't have tail-in)
-        # There is NO sender name in this situation so we have to either ascend thru the message siblings and find a previous one, or just take the
-        # last message's sender in our structure
+        # TODO: Study this pattern more and fix later if possible. Solution for now is to return None and then we take the last message's sender from our data structure.
         return None
 
 
