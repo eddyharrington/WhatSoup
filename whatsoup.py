@@ -53,14 +53,15 @@ def main():
         scraped = scrape_chat(driver)
 
         # Write to a text file
-        # TODO file name should be 'WhatsApp chat with Eddy Harrington.txt'
-        with open("Output.txt", "wb") as text_file:
-            for date_write, messages_write in scraped.items():
-                for message_write in messages_write:
-                    line = f"{date_write}, {message_write['time']} - {message_write['sender']}: {message_write['message']}\n"
-                    encoded = line.encode()
-                    text_file.write(encoded)
-        print('Scrape complete, export finished')
+        if export_txt(selected_export, scraped):
+            print("Would you like to scrape another chat?")
+            # TODO: refactor to enable looping of scrape activities
+        else:
+            print("Try again?")
+            # TODO: Handle failed txt file export
+
+        # TODO: add support for CSV file export
+
     else:
         # TODO: Handle unloadable chat (e.g. internet loss, browser crash, etc.)
         pass
@@ -824,6 +825,35 @@ def find_media_sender_when_copyable_does_not_exist(message):
     else:
         # TODO: Study this pattern more and fix later if possible. Solution for now is to return None and then we take the last message's sender from our data structure.
         return None
+
+
+def export_txt(selected_export, scraped):
+    '''Returns True if the scraped data for a selected export is written to local folder/filder without any exceptions thrown'''
+    print(f"Exporting your chat to local file...")
+
+    # Check if 'exports' directory exists, if not create it
+    if not os.path.isdir('exports'):
+        os.mkdir('exports')
+        print(
+            f"'exports' directory created at location: {os.path.dirname(os.path.abspath(__file__))}")
+
+    # Try exporting to a text file
+    try:
+        # Format file name as 'WhatsApp chat with [name] - [YYYY-MM-DD HH.MM.SS.AM/PM]'
+        now = datetime.now().strftime('%Y-%m-%d %H.%M.%S.%p')
+        with open(f"exports/WhatsApp chat with {selected_export} - {now}.txt", "wb") as text_file:
+            for date_write, messages_write in scraped.items():
+                for message_write in messages_write:
+                    line = f"{date_write}, {message_write['time']} - {message_write['sender']}: {message_write['message']}\n"
+                    encoded = line.encode()
+                    text_file.write(encoded)
+        print(
+            f"Success! 'WhatsApp chat with {selected_export} - {now}.txt' exported.")
+        return True
+
+    except Exception as error:
+        print(f"Error during export! Error info: {error}")
+        return False
 
 
 if __name__ == "__main__":
