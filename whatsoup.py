@@ -752,7 +752,6 @@ def is_media_in_message(message):
     '''Returns True if media is discovered within the message by checking the soup for known media flags. If not, it returns False.'''
 
     # First check for data-testid attributes containing 'media' (this covers gifs, videos, downloadable content)
-    # TODO: with the 'blanket search' below do we even need this anymore?
     possible_media_spans = message.find_all(attrs={'data-testid': True})
     for span in possible_media_spans:
         # Media types are stored in 'data-testid' attribute
@@ -765,7 +764,7 @@ def is_media_in_message(message):
 
     # Then check one of the blanket media classes which covers the above and other things like pdfs, txt files, contact cards, etc.
     if message.get('class'):
-        # GIFs, image attachments, txt files, pdf files, contact cards
+        # GIFs, image attachments, txt files, pdf files, contact cards, links w/ previewed image
         if '_2FNAC' in message.get('class'):
             return True
 
