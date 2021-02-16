@@ -182,65 +182,38 @@ def get_chats(driver):
         if is_last_chat:
             break
         else:
-            # TODO refactor this area later, there have been a few intermittent issues with odd text splits due to inconsistent HTML
-            # based on individual/group chats, emojis, attachments, etc. Should use BS4 as it grants more flexibility for slicing HTML.
+            # Get the name of the chat (note: intentionally ignore emojis and only get .text because  Selenium does not support sending keys w/ emojis,
+            # also various encoding/decoding string hacks have created inconsistent issues when eventually searching for chats in find_selected_chat)
+            name_of_chat = selected_chat.find_element_by_class_name(
+                "_3Tw1q").text
 
-            chat_info = selected_chat.text.splitlines()
+            # Get the time
+            last_chat_time = selected_chat.find_element_by_class_name(
+                "_2gsiG").text
 
-            # One-on-one chats: chat name, last chat time, last chat msg
-            if len(chat_info) == 3:
-                name_of_chat = chat_info[0]
-                last_chat_time = chat_info[1]
-                last_chat_msg = chat_info[2]
-            # Group chats: chat name, last chat time, name of last msg sender, last chat msg
-            elif len(chat_info) == 5:
-                # Note: ignore item3 which is always ':' in group chat
-                name_of_chat = chat_info[0]
-                last_chat_time = chat_info[1]
-                last_chat_msg = f"{chat_info[2]}: {chat_info[4]}"
-            # Edge cases
-            else:
-                # One-on-one chat where last message is an emoji. Splits the elements text w/ items 0) name of sender, 2) last chat time
-                if len(chat_info) == 2:
-                    try:
-                        name_of_chat = chat_info[0]
-                        last_chat_time = chat_info[1]
+            # Get the last message
+            last_chat_msg_element = selected_chat.find_element_by_class_name(
+                "fqPQb")
+            last_chat_msg = last_chat_msg_element.find_element_by_tag_name(
+                'span').get_attribute('title')
 
-                        # TODO below only grabs the first emoji item. If there are many emojis we need to find
-                        # all child elements and build a single string of the text/emojis.
+            # Strip last message of left-to-right directional encoding ('\u202a' and '\u202c') if it exists
+            if '\u202a' in last_chat_msg or '\u202c' in last_chat_msg:
+                last_chat_msg = last_chat_msg.lstrip(
+                    u'\u202a')
+                last_chat_msg = last_chat_msg.rstrip(
+                    u'\u202c')
 
-                        # Make sure to scrape from the chat preview span (class '_7W_3c') and not username span (class '_1c_mC')
-                        last_chat_msg = selected_chat.find_element_by_class_name(
-                            '_7W_3c').find_element_by_class_name('emoji').get_attribute('alt')
-                    except NoSuchElementException:
-                        print(
-                            f"Something went wrong while reading a chat card. Skipping '{chat_info}'")
-                        continue
+            # Check if last message is a group chat and if so prefix the senders name to the message
+            last_chat_msg_sender = last_chat_msg_element.find_element_by_tag_name(
+                'span').text
+            if '\n: \n' in last_chat_msg_sender:
+                # Group have multiple spans to separate sender, colon, and msg contents e.g. '<sender>: <msg>', so we take the first item after splitting to capture the senders name
+                last_chat_msg_sender = last_chat_msg_sender.split('\n')[
+                    0]
 
-                # One-on-one chat where last message is a photo attachment OR Group chat where last message is an emoji.
-                # TODO: Intermittent issue only happened 2 or 3 times...One-on-one implementation: splits the elements text w/ items 0) name of group, 1), last chat time, 2) 'Photo', 3) '1'
-
-                # Group chat implementation: splits the elements text w/ items 0) name of group, 1) last chat time, 2) sender, 3) ': '
-                elif len(chat_info) == 4:
-                    try:
-                        name_of_chat = chat_info[0]
-                        last_chat_time = chat_info[1]
-                        # Make sure to scrape from the chat preview span (class '_7W_3c') and not username span (class '_1c_mC')
-                        emoji_loc = selected_chat.find_element_by_class_name(
-                            '_7W_3c').find_element_by_class_name('emoji').get_attribute('alt')
-
-                        # Build the entire message by combining text w/ emoji
-                        last_chat_msg = f"{chat_info[2]}{chat_info[3].strip()} {emoji_loc}"
-                    except NoSuchElementException:
-                        print(
-                            f"Something went wrong while reading a chat card. Skipping '{chat_info}'")
-                        continue
-
-                # Handle any other length in case of errors
-                else:
-                    print(
-                        f"Something went wrong while reading a chat card. Skipping '{chat_info}'")
-                    continue
+                # Prefix the message w/ senders name
+                last_chat_msg = f"{last_chat_msg_sender}: {last_chat_msg}"
 
             # Store chat info within a dict
             chat = {"name": name_of_chat,
@@ -828,9 +801,9 @@ def find_media_sender_when_copyable_does_not_exist(message):
 
 
 def export_txt(selected_export, scraped):
-    '''Returns True if the scraped data for a selected export is written to local folder/filder without any exceptions thrown'''
-    print(f"Exporting your chat to local file...")
+    '''Returns True if the scraped data for a selected export is written to local folder/file without any exceptions thrown'''
 
+    print(f"Exporting your chat to local file...")
     # Check if 'exports' directory exists, if not create it
     if not os.path.isdir('exports'):
         os.mkdir('exports')
