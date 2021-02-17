@@ -18,7 +18,7 @@ def main():
     driver = setup_selenium()
 
     # Load WhatsApp
-    if load_whatsapp(driver) == 0:
+    if whatsapp_is_loaded(driver):
         print("Success! WhatsApp finished loading and is ready.")
     else:
         print("You've quit WhatSoup.")
@@ -80,12 +80,11 @@ def setup_selenium():
     return driver
 
 
-def load_whatsapp(driver):
+def whatsapp_is_loaded(driver):
     '''Attempts to load WhatsApp in the browser'''
 
     # Open WhatsApp
     driver.get('https://web.whatsapp.com/')
-    driver.maximize_window()
 
     # Check if user is already logged in
     logged_in, wait_time = False, 20
@@ -129,13 +128,13 @@ def load_whatsapp(driver):
                 elif err_response.strip().lower() == 'n' or err_response.strip().lower() == 'no':
                     is_valid_response = True
                     driver.quit()
-                    return 1
+                    return False
                 # Re-prompt the question
                 else:
                     is_valid_response = False
                     continue
     # Success
-    return 0
+    return True
 
 
 def user_is_logged_in(driver, wait_time):
