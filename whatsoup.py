@@ -182,10 +182,20 @@ def get_chats(driver):
         if is_last_chat:
             break
         else:
-            # Get the name of the chat (note: intentionally ignore emojis and only get .text because  Selenium does not support sending keys w/ emojis,
-            # also various encoding/decoding string hacks have created inconsistent issues when eventually searching for chats in find_selected_chat)
+            # Get the name of the chat
             name_of_chat = selected_chat.find_element_by_class_name(
                 "_3Tw1q").text
+            # Get the container of the contact card's title
+            contact_title_container = selected_chat.find_element_by_class_name(
+                "_3Tw1q")
+            # Then get all the spans it contains
+            contact_title_container_spans = contact_title_container.find_elements_by_tag_name(
+                'span')
+            # Then loop through all those until we find one w/ a title property
+            for span_title in contact_title_container_spans:
+                if span_title.get_property('title'):
+                    name_of_chat = span_title.get_property('title')
+                    break
 
             # Get the time
             last_chat_time = selected_chat.find_element_by_class_name(
@@ -428,42 +438,71 @@ def find_selected_chat(driver, selected_export):
     Assumptions:
     1) The chat is searchable and exists because we scraped it earlier in get_chats
     2) The searched chat will always be the first element under the search input box
-
-    TODO Notes:
-    - If any of the assumptions are false, then this algorithm will produce errors.
-    - Failing scenarios: 1) chat name changes since get_chats scrape, 2) chat name was scraped incorrectly which produces invalid search results (e.g. unsupported characters/encoding)
     '''
+
     print(f"Searching for '{selected_export}' chat in WhatsApp...")
 
-    # Find the chat via search (TODO: currently we assume it finds the chat because we scraped the chat name already and the first result is always the selected chat. May need to add verification.)
+    # Find the chat via search
     chat_search = driver.find_element_by_xpath(
         '//*[@id="side"]/div[1]/div/label/div/div[2]')
     chat_search.click()
-    chat_search.send_keys(selected_export)
-    # TODO: replace sleeps with X attempts and promting to retry?
-    sleep(2)
 
-    # Navigate to the chat, first element below search input
-    chat_search.send_keys(Keys.DOWN)
-    sleep(2)
+    # Type the chat name into the search box using a JavaScript hack because Selenium/Chromedriver doesn't support all unicode chars - https://bugs.chromium.org/p/chromedriver/issues/detail?id=2269
+    emoji_hack_script = f'''
+    let chat_search = document.querySelector('._1awRl');
+    chat_search.innerHTML = '{selected_export}';
+    '''
+    driver.execute_script(emoji_hack_script, selected_export)
 
-    # Fetch the element
-    search_result = driver.switch_to.active_element
+    # Manually fire the JS listeners/events with keyboard input
+    chat_search.send_keys(Keys.SPACE)
 
-    # No results were found if the active element is still the search box
-    if search_result.id == chat_search.id:
-        print(f"Error! '{selected_export}' produced no search results.")
+    # Remove the unnecessary space from above step
+    chat_search.send_keys(Keys.BACKSPACE)
+
+    # Go to the end of the search input box so that the next key (down) can select the chat card (if any)
+    chat_search.send_keys(Keys.END)
+
+    # Wait for search results to load (5 sec max)
+    try:
+        # Look for the unique class that holds 'Search results.'
+        WebDriverWait(driver, 5).until(expected_conditions.presence_of_element_located(
+            (By.XPATH, "//*[@class='_3soxC _2aY82']")))
+
+        # Force small sleep to deal with issue where focus gets interrupted after wait
+        sleep(2)
+    except TimeoutException:
+        print(
+            f"Error! '{selected_export}' produced no search results in WhatsApp.")
         return False
     else:
-        # Compare the selected chat to actual chat name header
-        chat_name_header = driver.find_element_by_class_name('YEe1t').text
-        if chat_name_header == selected_export:
-            print(f"Success! '{selected_export}' was found.")
-            return True
-        else:
+        # Navigate to the chat, first element below search input
+        chat_search.send_keys(Keys.DOWN)
+
+        # Fetch the element
+        search_result = driver.switch_to.active_element
+
+        try:
+            # Look for the chat name header and a title attribute that matches the selected chat
+            WebDriverWait(driver, 5).until(expected_conditions.presence_of_element_located(
+                (By.XPATH, f"//*[@id='main']/header/div[2]/div[1]/div/span[contains(@title,'{selected_export}')]")))
+        except TimeoutException:
             print(
-                f"Error! '{selected_export}' search results loaded the wrong chat: '{chat_name_header}'")
+                f"Error! '{selected_export}' chat could not be loaded in WhatsApp.")
             return False
+        else:
+            # Get the chat name
+            chat_name_header = driver.find_element_by_class_name(
+                'YEe1t').find_element_by_tag_name('span').get_attribute('title')
+
+            # Compare searched chat name to the selected chat name
+            if chat_name_header == selected_export:
+                print(f"Success! '{selected_export}' was found.")
+                return True
+            else:
+                print(
+                    f"Error! '{selected_export}' search results loaded the wrong chat: '{chat_name_header}'")
+                return False
 
 
 def scrape_chat(driver):
