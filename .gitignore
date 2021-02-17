@@ -133,3 +133,4 @@ Output.txt
 .vscode
 *.xlsx
 .note
+/exports
