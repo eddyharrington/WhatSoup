@@ -336,13 +336,13 @@ def load_selected_chat(driver):
     print("Loading messages...this may take a while.")
 
     # Click in chat window to set focus
-    convo_window_xpath = driver.find_element_by_xpath(
-        '//*[@id="main"]/div[3]/div/div/div[3]')
-    convo_window_xpath.click()
-    convo_window = driver.switch_to.active_element
+    message_list_element = driver.find_element_by_class_name("tSmQ1")
+    message_list_element.click()
+    message_list = driver.switch_to.active_element
 
     # Get all the div elements from the chat window - we use it to verify all records have loaded
-    current_div_count = len(convo_window_xpath.find_elements_by_xpath("./div"))
+    current_div_count = len(
+        message_list_element.find_elements_by_xpath("./div"))
     previous_div_count = current_div_count
 
     # Track dates during loading progress so user knows what timeframe of messages are being loaded
@@ -352,7 +352,7 @@ def load_selected_chat(driver):
     all_msgs_loaded = False
     while not all_msgs_loaded:
         # Hit home
-        convo_window.send_keys(Keys.HOME)
+        message_list.send_keys(Keys.HOME)
 
         # Track # of times we check for new messages
         attempts = 0
@@ -366,7 +366,7 @@ def load_selected_chat(driver):
 
             # Recount the child divs and verify if more messages loaded
             current_div_count = len(
-                convo_window_xpath.find_elements_by_xpath("./div"))
+                message_list_element.find_elements_by_xpath("./div"))
             if current_div_count > previous_div_count:
                 # More messages were loaded
                 previous_div_count = current_div_count
