@@ -1,4 +1,3 @@
-import requests
 import os
 
 from bs4 import BeautifulSoup
@@ -76,7 +75,7 @@ def setup_selenium():
     options = webdriver.ChromeOptions()
     options.add_argument(f"user-data-dir={CHROME_PROFILE}")
     driver = webdriver.Chrome(
-        executable_path=DRIVER_PATH, chrome_options=options)
+        executable_path=DRIVER_PATH, options=options)
 
     return driver
 
