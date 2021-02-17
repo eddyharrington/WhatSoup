@@ -795,7 +795,6 @@ def find_media_sender_when_copyable_does_not_exist(message):
 
     # Check to see if senders name is stored in a span's aria-label attribute (note: this seems to be where it's stored if the persons name is just text / no emoji)
     spans = message.find_all('span')
-    sender = None
     has_emoji = False
     for span in spans:
         if span.get('aria-label'):
@@ -803,7 +802,7 @@ def find_media_sender_when_copyable_does_not_exist(message):
             if span.get('aria-label') != 'Voice message':
                 return span.get('aria-label')[:-1]
         elif span.find('img'):
-            # Emoji is in name...TODO: below is copy/pasted from selectable. Refactor these two somehow?
+            # Emoji is in name and needs to be handled differently
             has_emoji = True
             break
         else:
@@ -814,7 +813,7 @@ def find_media_sender_when_copyable_does_not_exist(message):
         # Get all elements from container span that uses a unique class for names that contain emojis
         emoji_name_elements = message.find('span', '_19038 _3cwQ7 _1VzZY')
 
-        # Loop over every child element of the span to construct the sender
+        # Loop over every child element of the span to construct the senders name
         name = ''
         for element in emoji_name_elements.contents:
             # Check what kind of element it is
@@ -833,7 +832,7 @@ def find_media_sender_when_copyable_does_not_exist(message):
 
         return name
 
-    # There is no sender name in the message - pattern for this seems to be 1) sender name has no emoji, 2) msg has media, 3) msg does not have text, 4) msg is a follow-up / consecutive message (doesn't have tail-in icon in message span/svg)
+    # There is no sender name in the message, an issue that occurrs very infrequently (e.g. 6000+ msg chat occurred 3 times) - pattern for this seems to be 1) sender name has no emoji, 2) msg has media, 3) msg does not have text, 4) msg is a follow-up / consecutive message (doesn't have tail-in icon in message span/svg)
     else:
         # TODO: Study this pattern more and fix later if possible. Solution for now is to return None and then we take the last message's sender from our data structure.
         return None
