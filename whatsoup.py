@@ -862,8 +862,8 @@ def scrape_is_exported(selected_chat, scraped):
             if export_csv(selected_chat, scraped):
                 is_exported = True
         elif response.strip().lower() == 'html':
-            # TODO
-            is_exported = False
+            if export_html(selected_chat, scraped):
+                is_exported = True
         elif response.strip().lower() == '-abort':
             print(f"You've aborted the export for '{selected_chat}'.")
             return False
@@ -885,12 +885,15 @@ def export_txt(selected_chat, scraped):
     try:
         # Format file name as 'WhatsApp chat with [name] - [YYYY-MM-DD HH.MM.SS.AM/PM]'
         now = datetime.now().strftime('%Y-%m-%d %H.%M.%S.%p')
+
+        # Write to file
         with open(f"exports/WhatsApp Chat with {selected_chat} - {now}.txt", "wb") as text_file:
             for date_write, messages_write in scraped.items():
                 for message_write in messages_write:
                     line = f"{date_write}, {message_write['time']} - {message_write['sender']}: {message_write['message']}\n"
                     encoded = line.encode()
                     text_file.write(encoded)
+
         print(
             f"Success! 'WhatsApp Chat with {selected_chat} - {now}.txt' exported.")
         return True
@@ -906,13 +909,13 @@ def export_csv(selected_chat, scraped):
     # Make sure exports directory exists
     export_dir_setup()
 
-    # Unpack into nested lists for csv library iterable 'writerows'
+    # Unpack into nested lists
     data = []
-    for date_write, messages_write in scraped.items():
-        for message_write in messages_write:
+    for date, messages in scraped.items():
+        for message in messages:
             # Unpack into a list
-            message = [date_write, message_write['time'],
-                       message_write['sender'], message_write['message']]
+            message = [date, message['time'],
+                       message['sender'], message['message']]
 
             # Add to parent list
             data.append(message)
@@ -922,16 +925,67 @@ def export_csv(selected_chat, scraped):
     try:
         # Format file name as 'WhatsApp chat with [name] - [YYYY-MM-DD HH.MM.SS.AM/PM]'
         now = datetime.now().strftime('%Y-%m-%d %H.%M.%S.%p')
+
+        # Write to file
         with open(f"exports/WhatsApp Chat with {selected_chat} - {now}.csv", "w", newline="", encoding="utf-8-sig") as csv_file:
             writer = csv.writer(csv_file, delimiter=",")
             writer.writerow(['Date', 'Time', 'Sender', 'Message'])
             writer.writerows(data)
+
         print(
             f"Success! 'WhatsApp Chat with {selected_chat} - {now}.csv' exported.")
         return True
 
     except Exception as error:
         print(f"Error during csv export! Error info: {error}")
+        return False
+
+
+def export_html(selected_chat, scraped):
+    '''Returns True if the scraped data for a selected export is written to local .html file without any exceptions thrown'''
+
+    # Make sure exports directory exists
+    export_dir_setup()
+
+    # Unpack into nested lists
+    data = []
+    for date, messages in scraped.items():
+        for message in messages:
+            # Unpack into a list
+            message = [date, message['time'],
+                       message['sender'], message['message']]
+
+            # Add to parent list
+            data.append(message)
+
+    # Create a pretty table
+    t = PrettyTable()
+    t.field_names = ['Date', 'Time', 'Sender', 'Message']
+
+    # Add chat records to the table
+    for message in data:
+        t.add_row(message)
+
+    # Get HTML string from PrettyTable
+    html = t.get_html_string()
+
+    print(f"Exporting your chat to local .html file...")
+    # Try exporting to a html file
+    try:
+        # Format file name as 'WhatsApp chat with [name] - [YYYY-MM-DD HH.MM.SS.AM/PM]'
+        now = datetime.now().strftime('%Y-%m-%d %H.%M.%S.%p')
+
+        # Write to file
+        with open(f"exports/WhatsApp Chat with {selected_chat} - {now}.html", "wb") as html_file:
+            encoded = html.encode()
+            html_file.write(encoded)
+
+        print(
+            f"Success! 'WhatsApp Chat with {selected_chat} - {now}.html' exported.")
+        return True
+
+    except Exception as error:
+        print(f"Error during html export! Error info: {error}")
         return False
 
 
