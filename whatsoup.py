@@ -18,10 +18,7 @@ def main():
     driver = setup_selenium()
 
     # Load WhatsApp
-    if whatsapp_is_loaded(driver):
-        print("Success! WhatsApp finished loading and is ready.")
-    else:
-        print("You've quit WhatSoup.")
+    if not whatsapp_is_loaded(driver):
         return
 
     # Get chats
@@ -30,40 +27,41 @@ def main():
     # Print chat summary
     print_chats(chats)
 
-    # Ask user what chat to export, or if they wish to quit
-    selected_export = select_chat_export(chats)
-    if not selected_export:
-        return
-    else:
-        print(f"Success! '{selected_export}' will be scraped and exported.")
+    # Prompt user to select a chat for export, then locate and load it in WhatsApp
+    chat_is_loaded = False
+    while not chat_is_loaded:
+        # Select a chat and locate in WhatsApp
+        chat_is_loadable = False
+        while not chat_is_loadable:
+            # Ask user what chat to export
+            selected_chat = select_chat(chats)
+            if not selected_chat:
+                return
 
-    # Find the selected chat in WhatsApp
-    found_selected_chat = find_selected_chat(driver, selected_export)
-    if found_selected_chat:
+            # Find the selected chat in WhatsApp
+            found_selected_chat = find_selected_chat(driver, selected_chat)
+            if found_selected_chat:
+                # Break and proceed to load/scrape the chat
+                chat_is_loadable = True
+            else:
+                # Clear chat search
+                driver.find_element_by_class_name("_3Eocp").click()
+
         # Load entire chat history
         chat_is_loaded = load_selected_chat(driver)
-    else:
-        # TODO: Handle unsearchable chat (e.g. abort, manual intervention / input from user (note this has dependency on how we verify discovered chats in find_selected_chat))
-        pass
 
     # Scrape the chat history
-    if chat_is_loaded:
-        print("Scraping messages...this may take a while.")
-        scraped = scrape_chat(driver)
+    scraped = scrape_chat(driver)
 
-        # Write to a text file
-        if export_txt(selected_export, scraped):
-            print("Would you like to scrape another chat?")
-            # TODO: refactor to enable looping of scrape activities
-        else:
-            print("Try again?")
-            # TODO: Handle failed txt file export
-
-        # TODO: add support for CSV file export
-
+    # Write to a text file
+    if export_txt(selected_chat, scraped):
+        print("Would you like to scrape another chat?")
+        # TODO: refactor to enable looping of scrape activities
     else:
-        # TODO: Handle unloadable chat (e.g. internet loss, browser crash, etc.)
-        pass
+        print("Try again?")
+        # TODO: Handle failed txt file export
+
+    # TODO: add support for CSV file export
 
 
 def setup_selenium():
@@ -128,12 +126,15 @@ def whatsapp_is_loaded(driver):
                 elif err_response.strip().lower() == 'n' or err_response.strip().lower() == 'no':
                     is_valid_response = True
                     driver.quit()
+                    print("You've quit WhatSoup.")
                     return False
                 # Re-prompt the question
                 else:
                     is_valid_response = False
                     continue
+
     # Success
+    print("Success! WhatsApp finished loading and is ready.")
     return True
 
 
@@ -297,33 +298,33 @@ def print_chats(chats, full=False):
                 is_valid_response = False
 
 
-def select_chat_export(chats):
+def select_chat(chats):
     '''Prompts the user to select a chat they want to scrape/export'''
 
+    print("\nSelect a chat export option.\n  Options:\n  chat number\t\tSelect chat for export\n  -listchats\t\tList your chats\n  -quit\t\t\tQuit the application\n")
     while True:
         # Ask user to select chat for export
-        selected_export = None
-        print("\nSelect a chat export option.\n  Options:\n  chat number\t\tSelect chat for export\n  -listchats\t\tList your chats\n  -quit\t\t\tQuit the application\n")
-        export_response = input(
+        selected_chat = None
+        response = input(
             "What chat would you like to scrape and export? ")
 
         # Check users response
-        if export_response.strip().lower() == '-listchats':
+        if response.strip().lower() == '-listchats':
             print_chats(chats, full=True)
-        elif export_response.strip().lower() == '-quit':
+        elif response.strip().lower() == '-quit':
             print("You've quit WhatSoup.")
             return None
         else:
             # Make sure user entered a number correlating to the chat
             try:
-                int(export_response)
+                int(response)
             except ValueError:
                 print("Uh oh! You didn't enter a number. Try again.")
             else:
-                if int(export_response) in range(1, len(chats)+1):
-                    selected_export = chats[int(
-                        export_response)-1]['name']
-                    return selected_export
+                if int(response) in range(1, len(chats)+1):
+                    selected_chat = chats[int(
+                        response)-1]['name']
+                    return selected_chat
                 else:
                     print(
                         f"Uh oh! The only valid options are numbers 1 - {len(chats)}. Try again.")
@@ -430,7 +431,7 @@ def load_selected_chat(driver):
     return True
 
 
-def find_selected_chat(driver, selected_export):
+def find_selected_chat(driver, selected_chat):
     '''Searches and loads the initial chat. Returns True/False if the chat is found and can be loaded.
 
     Assumptions:
@@ -438,7 +439,7 @@ def find_selected_chat(driver, selected_export):
     2) The searched chat will always be the first element under the search input box
     '''
 
-    print(f"Searching for '{selected_export}' chat in WhatsApp...")
+    print(f"Searching for '{selected_chat}' chat in WhatsApp...")
 
     # Find the chat via search
     chat_search = driver.find_element_by_xpath(
@@ -448,9 +449,9 @@ def find_selected_chat(driver, selected_export):
     # Type the chat name into the search box using a JavaScript hack because Selenium/Chromedriver doesn't support all unicode chars - https://bugs.chromium.org/p/chromedriver/issues/detail?id=2269
     emoji_hack_script = f'''
     let chat_search = document.querySelector('._1awRl');
-    chat_search.innerHTML = '{selected_export}';
+    chat_search.innerHTML = '{selected_chat}';
     '''
-    driver.execute_script(emoji_hack_script, selected_export)
+    driver.execute_script(emoji_hack_script, selected_chat)
 
     # Manually fire the JS listeners/events with keyboard input
     chat_search.send_keys(Keys.SPACE)
@@ -471,7 +472,7 @@ def find_selected_chat(driver, selected_export):
         sleep(2)
     except TimeoutException:
         print(
-            f"Error! '{selected_export}' produced no search results in WhatsApp.")
+            f"Error! '{selected_chat}' produced no search results in WhatsApp.")
         return False
     else:
         # Navigate to the chat, first element below search input
@@ -483,10 +484,10 @@ def find_selected_chat(driver, selected_export):
         try:
             # Look for the chat name header and a title attribute that matches the selected chat
             WebDriverWait(driver, 5).until(expected_conditions.presence_of_element_located(
-                (By.XPATH, f"//*[@id='main']/header/div[2]/div[1]/div/span[contains(@title,'{selected_export}')]")))
+                (By.XPATH, f"//*[@id='main']/header/div[2]/div[1]/div/span[contains(@title,'{selected_chat}')]")))
         except TimeoutException:
             print(
-                f"Error! '{selected_export}' chat could not be loaded in WhatsApp.")
+                f"Error! '{selected_chat}' chat could not be loaded in WhatsApp.")
             return False
         else:
             # Get the chat name
@@ -494,17 +495,19 @@ def find_selected_chat(driver, selected_export):
                 'YEe1t').find_element_by_tag_name('span').get_attribute('title')
 
             # Compare searched chat name to the selected chat name
-            if chat_name_header == selected_export:
-                print(f"Success! '{selected_export}' was found.")
+            if chat_name_header == selected_chat:
+                print(f"Success! '{selected_chat}' was found.")
                 return True
             else:
                 print(
-                    f"Error! '{selected_export}' search results loaded the wrong chat: '{chat_name_header}'")
+                    f"Error! '{selected_chat}' search results loaded the wrong chat: '{chat_name_header}'")
                 return False
 
 
 def scrape_chat(driver):
     '''Turns the chat into soup and scrapes it for key export information: message sender, message date/time, message contents'''
+
+    print("Scraping messages...this may take a while.")
 
     # Make soup
     soup = BeautifulSoup(driver.page_source, 'lxml')
@@ -836,7 +839,7 @@ def find_media_sender_when_copyable_does_not_exist(message):
         return None
 
 
-def export_txt(selected_export, scraped):
+def export_txt(selected_chat, scraped):
     '''Returns True if the scraped data for a selected export is written to local folder/file without any exceptions thrown'''
 
     print(f"Exporting your chat to local file...")
@@ -850,14 +853,14 @@ def export_txt(selected_export, scraped):
     try:
         # Format file name as 'WhatsApp chat with [name] - [YYYY-MM-DD HH.MM.SS.AM/PM]'
         now = datetime.now().strftime('%Y-%m-%d %H.%M.%S.%p')
-        with open(f"exports/WhatsApp chat with {selected_export} - {now}.txt", "wb") as text_file:
+        with open(f"exports/WhatsApp chat with {selected_chat} - {now}.txt", "wb") as text_file:
             for date_write, messages_write in scraped.items():
                 for message_write in messages_write:
                     line = f"{date_write}, {message_write['time']} - {message_write['sender']}: {message_write['message']}\n"
                     encoded = line.encode()
                     text_file.write(encoded)
         print(
-            f"Success! 'WhatsApp chat with {selected_export} - {now}.txt' exported.")
+            f"Success! 'WhatsApp chat with {selected_chat} - {now}.txt' exported.")
         return True
 
     except Exception as error:
