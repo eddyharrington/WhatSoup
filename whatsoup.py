@@ -20,6 +20,8 @@ def main():
 
     # Load WhatsApp
     if not whatsapp_is_loaded(driver):
+        print("You've quit WhatSoup.")
+        driver.quit()
         return
 
     # Get chats
@@ -39,6 +41,8 @@ def main():
                 # Ask user what chat to export
                 selected_chat = select_chat(chats)
                 if not selected_chat:
+                    print("You've quit WhatSoup.")
+                    driver.quit()
                     return
 
                 # Find the selected chat in WhatsApp
@@ -60,37 +64,12 @@ def main():
         scrape_is_exported(selected_chat, scraped)
 
         # Ask user if they wish to finish and exit WhatSoup
-        # TODO
+        finished = user_is_finished()
 
-
-def scrape_is_exported(selected_chat, scraped):
-    '''Returns True/False if an export file type is selected and succesfully exported'''
-
-    print("\nSelect an export format.\n  Options:\n  txt\t\tExport to .txt file type\n  csv\t\tExport to .csv file type\n  html\t\tExport to .html file type\n  -abort\tAbort the export\n")
-    is_exported = False
-    while not is_exported:
-        # Ask user to select export type
-        response = input(
-            "What format do you want to export to? ")
-
-        # Check users response
-        if response.strip().lower() == 'txt':
-            if export_txt(selected_chat, scraped):
-                is_exported = True
-        elif response.strip().lower() == 'csv':
-            if export_csv(selected_chat, scraped):
-                is_exported = True
-        elif response.strip().lower() == 'html':
-            # TODO
-            is_exported = False
-        elif response.strip().lower() == '-abort':
-            print(f"You've aborted the export for '{selected_chat}'.")
-            return False
-        else:
-            print(
-                f"Uh oh! '{response.strip().lower()}' is not a valid option. Try again.")
-
-    return True
+    # Quit WhatSoup
+    print("You've quit WhatSoup.")
+    driver.quit()
+    return
 
 
 def setup_selenium():
@@ -154,8 +133,6 @@ def whatsapp_is_loaded(driver):
                 # Abort loading WhatsApp
                 elif err_response.strip().lower() == 'n' or err_response.strip().lower() == 'no':
                     is_valid_response = True
-                    driver.quit()
-                    print("You've quit WhatSoup.")
                     return False
                 # Re-prompt the question
                 else:
@@ -341,7 +318,6 @@ def select_chat(chats):
         if response.strip().lower() == '-listchats':
             print_chats(chats, full=True)
         elif response.strip().lower() == '-quit':
-            print("You've quit WhatSoup.")
             return None
         else:
             # Make sure user entered a number correlating to the chat
@@ -868,6 +844,36 @@ def find_media_sender_when_copyable_does_not_exist(message):
         return None
 
 
+def scrape_is_exported(selected_chat, scraped):
+    '''Returns True/False if an export file type is selected and succesfully exported'''
+
+    print("\nSelect an export format.\n  Options:\n  txt\t\tExport to .txt file type\n  csv\t\tExport to .csv file type\n  html\t\tExport to .html file type\n  -abort\tAbort the export\n")
+    is_exported = False
+    while not is_exported:
+        # Ask user to select export type
+        response = input(
+            "What format do you want to export to? ")
+
+        # Check users response
+        if response.strip().lower() == 'txt':
+            if export_txt(selected_chat, scraped):
+                is_exported = True
+        elif response.strip().lower() == 'csv':
+            if export_csv(selected_chat, scraped):
+                is_exported = True
+        elif response.strip().lower() == 'html':
+            # TODO
+            is_exported = False
+        elif response.strip().lower() == '-abort':
+            print(f"You've aborted the export for '{selected_chat}'.")
+            return False
+        else:
+            print(
+                f"Uh oh! '{response.strip().lower()}' is not a valid option. Try again.")
+
+    return True
+
+
 def export_txt(selected_chat, scraped):
     '''Returns True if the scraped data for a selected export is written to local .txt file without any exceptions thrown'''
 
@@ -936,6 +942,24 @@ def export_dir_setup():
         os.mkdir('exports')
         print(
             f"'exports' directory created at location: {os.path.dirname(os.path.abspath(__file__))}")
+
+
+def user_is_finished():
+    '''Returns True/False is the user wants to finish and exit WhatSoup'''
+
+    is_valid_response = False
+    while not is_valid_response:
+        response = input("Proceed with exporting another chat (y/n)? ")
+
+        # Do not exit WhatSoup
+        if response.strip().lower() == 'y' or response.strip().lower() == 'yes':
+            return False
+        # Quit and exit
+        elif response.strip().lower() == 'n' or response.strip().lower() == 'no':
+            return True
+        # Re-prompt the question
+        else:
+            continue
 
 
 if __name__ == "__main__":
