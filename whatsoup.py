@@ -1,4 +1,5 @@
 import os
+import csv
 
 from bs4 import BeautifulSoup
 from time import sleep
@@ -28,40 +29,68 @@ def main():
     print_chats(chats)
 
     # Prompt user to select a chat for export, then locate and load it in WhatsApp
-    chat_is_loaded = False
-    while not chat_is_loaded:
-        # Select a chat and locate in WhatsApp
-        chat_is_loadable = False
-        while not chat_is_loadable:
-            # Ask user what chat to export
-            selected_chat = select_chat(chats)
-            if not selected_chat:
-                return
+    finished = False
+    while not finished:
+        chat_is_loaded = False
+        while not chat_is_loaded:
+            # Select a chat and locate in WhatsApp
+            chat_is_loadable = False
+            while not chat_is_loadable:
+                # Ask user what chat to export
+                selected_chat = select_chat(chats)
+                if not selected_chat:
+                    return
 
-            # Find the selected chat in WhatsApp
-            found_selected_chat = find_selected_chat(driver, selected_chat)
-            if found_selected_chat:
-                # Break and proceed to load/scrape the chat
-                chat_is_loadable = True
-            else:
-                # Clear chat search
-                driver.find_element_by_class_name("_3Eocp").click()
+                # Find the selected chat in WhatsApp
+                found_selected_chat = find_selected_chat(driver, selected_chat)
+                if found_selected_chat:
+                    # Break and proceed to load/scrape the chat
+                    chat_is_loadable = True
+                else:
+                    # Clear chat search
+                    driver.find_element_by_class_name("_3Eocp").click()
 
-        # Load entire chat history
-        chat_is_loaded = load_selected_chat(driver)
+            # Load entire chat history
+            chat_is_loaded = load_selected_chat(driver)
 
-    # Scrape the chat history
-    scraped = scrape_chat(driver)
+        # Scrape the chat history
+        scraped = scrape_chat(driver)
 
-    # Write to a text file
-    if export_txt(selected_chat, scraped):
-        print("Would you like to scrape another chat?")
-        # TODO: refactor to enable looping of scrape activities
-    else:
-        print("Try again?")
-        # TODO: Handle failed txt file export
+        # Export the chat
+        scrape_is_exported(selected_chat, scraped)
 
-    # TODO: add support for CSV file export
+        # Ask user if they wish to finish and exit WhatSoup
+        # TODO
+
+
+def scrape_is_exported(selected_chat, scraped):
+    '''Returns True/False if an export file type is selected and succesfully exported'''
+
+    print("\nSelect an export format.\n  Options:\n  txt\t\tExport to .txt file type\n  csv\t\tExport to .csv file type\n  html\t\tExport to .html file type\n  -abort\tAbort the export\n")
+    is_exported = False
+    while not is_exported:
+        # Ask user to select export type
+        response = input(
+            "What format do you want to export to? ")
+
+        # Check users response
+        if response.strip().lower() == 'txt':
+            if export_txt(selected_chat, scraped):
+                is_exported = True
+        elif response.strip().lower() == 'csv':
+            if export_csv(selected_chat, scraped):
+                is_exported = True
+        elif response.strip().lower() == 'html':
+            # TODO
+            is_exported = False
+        elif response.strip().lower() == '-abort':
+            print(f"You've aborted the export for '{selected_chat}'.")
+            return False
+        else:
+            print(
+                f"Uh oh! '{response.strip().lower()}' is not a valid option. Try again.")
+
+    return True
 
 
 def setup_selenium():
@@ -840,32 +869,73 @@ def find_media_sender_when_copyable_does_not_exist(message):
 
 
 def export_txt(selected_chat, scraped):
-    '''Returns True if the scraped data for a selected export is written to local folder/file without any exceptions thrown'''
+    '''Returns True if the scraped data for a selected export is written to local .txt file without any exceptions thrown'''
 
-    print(f"Exporting your chat to local file...")
-    # Check if 'exports' directory exists, if not create it
-    if not os.path.isdir('exports'):
-        os.mkdir('exports')
-        print(
-            f"'exports' directory created at location: {os.path.dirname(os.path.abspath(__file__))}")
+    # Make sure exports directory exists
+    export_dir_setup()
 
+    print(f"Exporting your chat to local .txt file...")
     # Try exporting to a text file
     try:
         # Format file name as 'WhatsApp chat with [name] - [YYYY-MM-DD HH.MM.SS.AM/PM]'
         now = datetime.now().strftime('%Y-%m-%d %H.%M.%S.%p')
-        with open(f"exports/WhatsApp chat with {selected_chat} - {now}.txt", "wb") as text_file:
+        with open(f"exports/WhatsApp Chat with {selected_chat} - {now}.txt", "wb") as text_file:
             for date_write, messages_write in scraped.items():
                 for message_write in messages_write:
                     line = f"{date_write}, {message_write['time']} - {message_write['sender']}: {message_write['message']}\n"
                     encoded = line.encode()
                     text_file.write(encoded)
         print(
-            f"Success! 'WhatsApp chat with {selected_chat} - {now}.txt' exported.")
+            f"Success! 'WhatsApp Chat with {selected_chat} - {now}.txt' exported.")
         return True
 
     except Exception as error:
-        print(f"Error during export! Error info: {error}")
+        print(f"Error during txt export! Error info: {error}")
         return False
+
+
+def export_csv(selected_chat, scraped):
+    '''Returns True if the scraped data for a selected export is written to local .csv file without any exceptions thrown'''
+
+    # Make sure exports directory exists
+    export_dir_setup()
+
+    # Unpack into nested lists for csv library iterable 'writerows'
+    data = []
+    for date_write, messages_write in scraped.items():
+        for message_write in messages_write:
+            # Unpack into a list
+            message = [date_write, message_write['time'],
+                       message_write['sender'], message_write['message']]
+
+            # Add to parent list
+            data.append(message)
+
+    print(f"Exporting your chat to local .csv file...")
+    # Try exporting to a csv file
+    try:
+        # Format file name as 'WhatsApp chat with [name] - [YYYY-MM-DD HH.MM.SS.AM/PM]'
+        now = datetime.now().strftime('%Y-%m-%d %H.%M.%S.%p')
+        with open(f"exports/WhatsApp Chat with {selected_chat} - {now}.csv", "w", newline="", encoding="utf-8-sig") as csv_file:
+            writer = csv.writer(csv_file, delimiter=",")
+            writer.writerow(['Date', 'Time', 'Sender', 'Message'])
+            writer.writerows(data)
+        print(
+            f"Success! 'WhatsApp Chat with {selected_chat} - {now}.csv' exported.")
+        return True
+
+    except Exception as error:
+        print(f"Error during csv export! Error info: {error}")
+        return False
+
+
+def export_dir_setup():
+    '''Creates a local 'exports' directory if it does not already exist'''
+
+    if not os.path.isdir('exports'):
+        os.mkdir('exports')
+        print(
+            f"'exports' directory created at location: {os.path.dirname(os.path.abspath(__file__))}")
 
 
 if __name__ == "__main__":
