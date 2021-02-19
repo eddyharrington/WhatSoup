@@ -268,8 +268,8 @@ def print_chats(chats, full=False):
         # Style the columns
         for key in t.align.keys():
             t.align[key] = "l"
-        t._max_width = {"#": 4, "Chat Name": 25,
-                        "Last Msg Time": 12, "Last Msg": 70}
+        t._max_width = {"#": 3, "Chat Name": 25,
+                        "Last Msg Time": 10, "Last Msg": 40}
 
         # Add up to 5 most recent chat records to the table
         row_count = 0
