@@ -12,6 +12,7 @@ from selenium.webdriver.support import expected_conditions
 from selenium.webdriver.common.by import By
 from selenium.common.exceptions import TimeoutException, NoSuchElementException
 from prettytable import PrettyTable
+from dotenv import load_dotenv
 
 
 def main():
@@ -76,8 +77,11 @@ def setup_selenium():
     '''Setup Selenium to use Chrome webdriver'''
 
     # Load driver and chrome profile from local directories
+    load_dotenv()
     DRIVER_PATH = os.getenv('DRIVER_PATH')
     CHROME_PROFILE = os.getenv('CHROME_PROFILE')
+
+    # Configure selenium
     options = webdriver.ChromeOptions()
     options.add_argument(f"user-data-dir={CHROME_PROFILE}")
     driver = webdriver.Chrome(
