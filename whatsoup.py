@@ -93,6 +93,8 @@ def setup_selenium():
 def whatsapp_is_loaded(driver):
     '''Attempts to load WhatsApp in the browser'''
 
+    print("Loading WhatsApp...", end="\r")
+
     # Open WhatsApp
     driver.get('https://web.whatsapp.com/')
 
@@ -114,25 +116,9 @@ def whatsapp_is_loaded(driver):
                 # Ask user if they want to try loading WhatsApp again
                 err_response = input("Proceed (y/n)? ")
 
-                # Check the user's response
+                # Try again
                 if err_response.strip().lower() == 'y' or err_response.strip().lower() == 'yes':
-
-                    while True:
-                        # Ask user if they want to increment the wait time by 10 seconds
-                        wait_response = input(
-                            f"Increase wait time for WhatsApp to load from {wait_time} seconds to {wait_time + 10} seconds (y/n)? ")
-
-                        # Increase wait time by 10 seconds
-                        if wait_response.strip().lower() == 'y' or wait_response.strip().lower() == 'yes':
-                            wait_time += 10
-                            is_valid_response = True
-                            break
-                        elif wait_response.strip().lower() == 'n' or wait_response.strip().lower() == 'no':
-                            is_valid_response = True
-                            break
-                        else:
-                            is_valid_response = False
-
+                    is_valid_response = True
                     continue
                 # Abort loading WhatsApp
                 elif err_response.strip().lower() == 'n' or err_response.strip().lower() == 'no':
@@ -161,6 +147,8 @@ def user_is_logged_in(driver, wait_time):
 
 def get_chats(driver):
     '''Traverses the WhatsApp chat-pane via keyboard input and collects chat information such as person/group name, last chat time and msg'''
+
+    print("Loading your chats...", end="\r")
 
     # Find the chat search input because the element below it is always the most recent chat
     chat_search = driver.find_element_by_xpath(
@@ -243,6 +231,8 @@ def get_chats(driver):
     chat_search.click()
     chat_search.send_keys(Keys.DOWN)
 
+    print("Success! Your chats have been loaded.")
+
     return chats
 
 
@@ -258,8 +248,8 @@ def print_chats(chats, full=False):
         # Style the columns
         for key in t.align.keys():
             t.align[key] = "l"
-        t._max_width = {"#": 4, "Chat Name": 25,
-                        "Last Msg Time": 12, "Last Msg": 70}
+        t._max_width = {"#": 3, "Chat Name": 25,
+                        "Last Msg Time": 10, "Last Msg": 40}
 
         # Add chat records to the table
         for i, chat in enumerate(chats, start=1):
@@ -342,7 +332,7 @@ def select_chat(chats):
 def load_selected_chat(driver):
     '''Loads entire chat history by repeatedly hitting the home button to fetch more data from WhatsApp'''
 
-    print("Loading messages...this may take a while.")
+    print("Loading messages...", end="\r")
 
     # Click in chat window to set focus
     message_list_element = driver.find_element_by_class_name("tSmQ1")
@@ -431,7 +421,6 @@ def load_selected_chat(driver):
                             return False
                         elif response.strip().lower() == 'y' or response.strip().lower() == 'yes':
                             # Reset counter
-                            print("Loading more messages...")
                             attempts = 0
                             break
                         else:
@@ -448,7 +437,7 @@ def find_selected_chat(driver, selected_chat):
     2) The searched chat will always be the first element under the search input box
     '''
 
-    print(f"Searching for '{selected_chat}' chat in WhatsApp...")
+    print(f"Searching for '{selected_chat}'...", end="\r")
 
     # Find the chat via search
     chat_search = driver.find_element_by_xpath(
@@ -516,7 +505,7 @@ def find_selected_chat(driver, selected_chat):
 def scrape_chat(driver):
     '''Turns the chat into soup and scrapes it for key export information: message sender, message date/time, message contents'''
 
-    print("Scraping messages...this may take a while.")
+    print("Scraping messages...", end="\r")
 
     # Make soup
     soup = BeautifulSoup(driver.page_source, 'lxml')
@@ -525,7 +514,7 @@ def scrape_chat(driver):
     chat_messages = [
         msg for msg in soup.find("div", "tSmQ1").contents if 'message' in " ".join(msg.get('class'))]
     chat_messages_count = len(chat_messages)
-    print(f"{chat_messages_count} messages will be scraped and exported.")
+    print(f"{chat_messages_count} messages will be scraped and exported.", end="\r")
 
     # Get users profile name
     you = get_users_profile_name(chat_messages)
@@ -538,7 +527,7 @@ def scrape_chat(driver):
         # Count messages for progress message to user and to compare expected vs actual scraped chat messages
         messages_count += 1
         print(
-            f"Exporting message {messages_count} of {chat_messages_count}", end="\r")
+            f"Scraping message {messages_count} of {chat_messages_count}", end="\r")
 
         # Dictionary for holding chat information (sender, msg date/time, msg contents, message content types, and data-id for debugging)
         message_scraped = {
@@ -638,7 +627,7 @@ def scrape_chat(driver):
 
     # Scrape summary
     if len(messages) == chat_messages_count:
-        print(f"Success! {len(messages)} messages have been scraped.")
+        print(f"Success! All {len(messages)} messages have been scraped.")
     else:
         print(
             f"Warning! {len(messages)} messages scraped but {chat_messages_count} expected.")
@@ -884,7 +873,7 @@ def export_txt(selected_chat, scraped):
     # Make sure exports directory exists
     export_dir_setup()
 
-    print(f"Exporting your chat to local .txt file...")
+    print(f"Exporting to local .txt file...", end="\r")
     # Try exporting to a text file
     try:
         # Format file name as 'WhatsApp chat with [name] - [YYYY-MM-DD HH.MM.SS.AM/PM]'
@@ -924,7 +913,7 @@ def export_csv(selected_chat, scraped):
             # Add to parent list
             data.append(message)
 
-    print(f"Exporting your chat to local .csv file...")
+    print(f"Exporting to local .csv file...", end="\r")
     # Try exporting to a csv file
     try:
         # Format file name as 'WhatsApp chat with [name] - [YYYY-MM-DD HH.MM.SS.AM/PM]'
@@ -973,7 +962,7 @@ def export_html(selected_chat, scraped):
     # Get HTML string from PrettyTable
     html = t.get_html_string()
 
-    print(f"Exporting your chat to local .html file...")
+    print(f"Exporting to local .html file...", end="\r")
     # Try exporting to a html file
     try:
         # Format file name as 'WhatsApp chat with [name] - [YYYY-MM-DD HH.MM.SS.AM/PM]'
@@ -999,7 +988,7 @@ def export_dir_setup():
     if not os.path.isdir('exports'):
         os.mkdir('exports')
         print(
-            f"'exports' directory created at location: {os.path.dirname(os.path.abspath(__file__))}")
+            f"'exports' directory created: {os.path.dirname(os.path.abspath(__file__))}")
 
 
 def user_is_finished():
