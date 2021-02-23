@@ -733,14 +733,14 @@ def find_chat_datetime_when_copyable_does_not_exist(message, last_msg_date):
 
             # Build date/time object
             message_datetime = datetime.strptime(
-                f"{media_message_datetime.strftime('%#m/%#d/%Y')} {media_message_datetime.strftime('%I:%M %p')}", "%m/%d/%Y %I:%M %p")
+                f"{media_message_datetime.strftime('%m/%d/%Y')} {media_message_datetime.strftime('%I:%M %p')}", "%m/%d/%Y %I:%M %p")
 
             return message_datetime
 
         # Otherwise last message's date/time (note this could assign the wrong date if for example the last message was 1+ days ago)
         except:
             message_datetime = datetime.strptime(
-                f"{last_msg_date.strftime('%#m/%#d/%Y')} {message_time}", "%m/%d/%Y %I:%M %p")
+                f"{last_msg_date.strftime('%m/%d/%Y')} {message_time}", "%m/%d/%Y %I:%M %p")
 
             return message_datetime
 
