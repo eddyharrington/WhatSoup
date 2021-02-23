@@ -32,55 +32,68 @@ A web scraper that exports your entire WhatsApp chat history.
 
 ## Instructions
 1) Clone the repo:
+
     ```
     git clone https://github.com/eddyharrington/WhatSoup.git
     ```
+
 2) Create a virtual environment:
+
     ```
     # Windows
     python -m venv env
 
-    # Linux
+    # Linux & Mac
     python3 -m venv env
-
-    # Mac
-    TODO
     ```
+
 3) Activate the virtual environment:
+
     ```
     # Windows
     env/Scripts/activate
 
-    # Linux
+    # Linux & Mac
     source env/bin/activate
+    ```
 
-    # Mac
-    TODO
-    ```
 4) Install the dependencies:
+
     ```
+    # Windows
     pip install -r requirements.txt
+
+    # Linux & Mac
+    python3 -m pip install -r requirements.txt
     ```
+
 5) Setup your environment
+
 - Download [ChromeDriver](https://chromedriver.chromium.org/downloads) and extract it to a local folder (such as the ```env``` folder)
 - Get your Chrome browser ```Profile Path``` by opening Chrome and entering ```chrome://version``` into the URL bar
-- Create an ```.env``` file with an entry for ```DRIVER_PATH``` and ```CHROME_PROFILE``` that specify the directory paths for your ChromeDriver and your Chrome Profile:
+- Create an ```.env``` file with an entry for ```DRIVER_PATH``` and ```CHROME_PROFILE``` that specify the directory paths for your ChromeDriver and your Chrome Profile from above steps:
+
     ```
-    # .env file contents
+    # Windows
     DRIVER_PATH = 'C:\path-to-your-driver\chromedriver.exe'
     CHROME_PROFILE = 'C:\Users\your-username\AppData\Local\Google\Chrome\User Data'
+
+    # Linux & Mac
+    DRIVER_PATH = '/Users/your-username/path-to-your-driver/chromedriver'
+    CHROME_PROFILE = '/Users/your-username/Library/Application Support/Google/Chrome/Default'
     ```
+
 5) Run the script
+
     ```
     # Windows
     python whatsoup.py
 
-    # Linux
+    # Linux & Mac
     python3 whatsoup.py
-
-    # Mac
-    TODO
     ```
+
+    **Note for Mac users**: you may get blocked when trying to run the script the first time with a message about chromedriver not being from an identified developer. This is normal. Follow [these instructions](https://stackoverflow.com/a/60362134) to grant chromedriver an exception, then re-run the script.
 
 ## Contributing
 TODO
