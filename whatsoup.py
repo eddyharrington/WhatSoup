@@ -396,6 +396,9 @@ def load_selected_chat(driver):
                                 'Error! Aborting chat load by user due to loading timeout.')
                             return False
                         elif response.strip().lower() == 'y' or response.strip().lower() == 'yes':
+                            # Set focus to chat window again
+                            message_list_element.send_keys(Keys.NULL)
+
                             # Reset counter
                             retry_attempts = 0
                             break
