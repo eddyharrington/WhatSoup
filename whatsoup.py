@@ -330,101 +330,82 @@ def select_chat(chats):
 
 
 def load_selected_chat(driver):
-    '''Loads entire chat history by repeatedly hitting the home button to fetch more data from WhatsApp'''
+    '''Loads entire chat history by repeatedly scrolling up to fetch more data from WhatsApp'''
 
     print("Loading messages...", end="\r")
 
-    # Click in chat window to set focus
+    # Set focus to chat window
     message_list_element = driver.find_element_by_class_name("tSmQ1")
-    message_list_element.click()
-    message_list = driver.switch_to.active_element
+    message_list_element.send_keys(Keys.NULL)
 
-    # Get all the div elements from the chat window - we use it to verify all records have loaded
-    current_div_count = len(
-        message_list_element.find_elements_by_xpath("./div"))
-    previous_div_count = current_div_count
+    # Get scroll height of the chat pane div so we can calculate if new messages were loaded
+    current_scroll_height = driver.execute_script(
+        "return arguments[0].scrollHeight;", message_list_element)
+    previous_scroll_height = current_scroll_height
 
-    # Track dates during loading progress so user knows what timeframe of messages are being loaded
-    current_load_date = None
-
-    # Load all messages by hitting home and continually checking div count to verify more messages have loaded
+    # Load all messages by scrolling up and continually checking scroll height to verify more messages have loaded
     all_msgs_loaded = False
+    retry_attempts, success_attempts = 0, 0
     while not all_msgs_loaded:
-        # Hit home
-        message_list.send_keys(Keys.HOME)
+        # Scroll to anchor at top of message list (fetches more messages)
+        driver.execute_script(
+            "arguments[0].scrollIntoView();", message_list_element)
 
-        # Track # of times we check for new messages
-        attempts = 0
+        # Grant some time for messages to load
+        sleep(2)
 
-        # Counts divs to see if new messages actually loaded after hitting HOME
-        while True:
-            attempts += 1
+        # Get scroll height of the chat pane div so we can calculate if new messages were loaded
+        previous_scroll_height = current_scroll_height
+        current_scroll_height = driver.execute_script(
+            "return arguments[0].scrollHeight;", message_list_element)
 
-            # Wait for messages to load
-            sleep(1)
+        # Check if scroll height changed
+        if current_scroll_height > previous_scroll_height:
+            # New messages were loaded, reset retry counter
+            retry_attempts = 0
 
-            # Recount the child divs and verify if more messages loaded
-            current_div_count = len(
-                message_list_element.find_elements_by_xpath("./div"))
-            if current_div_count > previous_div_count:
-                # More messages were loaded
-                previous_div_count = current_div_count
+            # Increment success attempts for user awareness
+            success_attempts += 1
+            print(
+                f"Load new messages succeeded {success_attempts} times", end="\r")
 
-                # Try grabbing date of currently loaded messages (always the latest KpuSa element rendereded after more messages are loaded)
-                # TODO: somewhat expensive use of code for what could be an easier way to show progress during scraping. Keep this long term?
-                try:
-                    # Use a date rendered in chat window such as 1/1/2021
-                    current_load_date = datetime.strptime(
-                        driver.find_element_by_class_name('KpuSa').text, '%m/%d/%Y')
-                    print(
-                        f"Loaded new messages from {current_load_date.strftime('%m/%d/%Y')}", end="\r")
-                except ValueError:
-                    # Use a non-date string value such as Yesterday/Today/Monday/etc, skip over chat event items like missed calls, name updates, etc.
+            # Loop back and load more messages
+            continue
 
-                    # Verify the expected date element is not a chat event by checking for single vs multiple words
-                    possible_date = driver.find_element_by_class_name(
-                        'KpuSa').text.split(' ')
-                    if len(possible_date) == 1:
-                        # Skip empty strings
-                        if possible_date[0]:
-                            print(
-                                f"Loaded new messages from {possible_date[0].title()}", end="\r")
-                    else:
-                        # For group events / sentences, use non-date message with same char length of 35 to ensure printed line overwrites the previous print statement
-                        print(
-                            f"Loaded new messages from your chat!", end="\r")
-                except:
-                    # Use non-date message with same char length of 35 to ensure printed line overwrites the previous print statement
-                    print(
-                        f"Loaded new messages from your chat!", end="\r")
-
-                # Loop back to hitting Home again to load more messages
-                break
-
-            # Check if all messages have loaded (note: 'load earlier messages' div gets deleted from DOM once all messages have loaded)
-            load_messages_div = driver.find_element_by_xpath(
-                '//*[@id="main"]/div[3]/div/div/div[2]/div').get_attribute('title')
-            if load_messages_div == '':
+        # Check if all messages were loaded or retry loading more
+        elif current_scroll_height == previous_scroll_height:
+            # All messages loaded?
+            try:
+                # This is the 'load more messages' element
+                driver.find_element_by_class_name("_1888i")
+            except NoSuchElementException:
                 all_msgs_loaded = True
                 print("Success! Your entire chat history has been loaded.")
                 break
+
+            # Retry loading more messages
             else:
-                # Make sure we grant user option to exit if ~30sec of hitting home doesn't result in all messages being loaded
-                if attempts >= 30:
+                # Make sure we grant user option to exit if ~60sec of attempting to load more messages doesn't result in new messages loading
+                if retry_attempts >= 30:
                     print("This is taking longer than usual...")
                     while True:
                         response = input(
                             "Try loading more messages (y/n)? ")
                         if response.strip().lower() == 'n' or response.strip().lower() == 'no':
                             print(
-                                'Error! Aborting conversation loading due to timeout.')
+                                'Error! Aborting chat load by user due to loading timeout.')
                             return False
                         elif response.strip().lower() == 'y' or response.strip().lower() == 'yes':
                             # Reset counter
-                            attempts = 0
+                            retry_attempts = 0
                             break
                         else:
                             continue
+
+                # Increment retry acounter and load more messages
+                else:
+                    retry_attempts += 1
+                    continue
 
     return True
 
@@ -514,7 +495,6 @@ def scrape_chat(driver):
     chat_messages = [
         msg for msg in soup.find("div", "tSmQ1").contents if 'message' in " ".join(msg.get('class'))]
     chat_messages_count = len(chat_messages)
-    print(f"{chat_messages_count} messages will be scraped and exported.", end="\r")
 
     # Get users profile name
     you = get_users_profile_name(chat_messages)
@@ -620,7 +600,15 @@ def scrape_chat(driver):
                 message_scraped['message'] = '<Media omitted>'
 
         # Add the message object to list
-        messages.append(message_scraped.copy())
+        if 'grouped-sticker' not in message.get('data-id'):
+            messages.append(message_scraped.copy())
+        else:
+            # Make duplicate entry for grouped sticker to match behavior with WhatsApp export (i.e. a group sticker == 2 lines in the txt export both with <Media omitted> messages)
+            messages.append(message_scraped.copy())
+            messages.append(message_scraped.copy())
+
+            # Finally, update expectd msg count
+            chat_messages_count += 1
 
         # Loop to the next chat message
         continue
@@ -778,6 +766,10 @@ def is_media_in_message(message):
     if message.get('class'):
         # GIFs, image attachments, txt files, pdf files, contact cards, links w/ previewed image
         if '_2FNAC' in message.get('class'):
+            return True
+
+        # Check for stickers (grouped and individual stickers)
+        if 'grouped-sticker' in message.get('data-id') or message.find('div', "_23kzp"):
             return True
 
         # Voice messages which are nested in child divs so we need to scan all contents
