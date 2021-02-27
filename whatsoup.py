@@ -53,7 +53,8 @@ def main():
                     chat_is_loadable = True
                 else:
                     # Clear chat search
-                    driver.find_element_by_class_name("_3Eocp").click()
+                    driver.find_element_by_xpath(
+                        '//*[@id="side"]/div[1]/div/span/button').click()
 
             # Load entire chat history
             chat_is_loaded = load_selected_chat(driver)
@@ -150,7 +151,7 @@ def get_chats(driver):
 
     print("Loading your chats...", end="\r")
 
-    # Find the chat search input because the element below it is always the most recent chat
+    # Find the chat search (xpath == 'Search or start new chat' element)
     chat_search = driver.find_element_by_xpath(
         '//*[@id="side"]/div[1]/div/label/div/div[2]')
     chat_search.click()
@@ -179,12 +180,9 @@ def get_chats(driver):
         if is_last_chat:
             break
         else:
-            # Get the name of the chat
-            name_of_chat = selected_chat.find_element_by_class_name(
-                "_3Tw1q").text
-            # Get the container of the contact card's title
-            contact_title_container = selected_chat.find_element_by_class_name(
-                "_3Tw1q")
+            # Get the container of the contact card's title (xpath == parent div container to the span w/ title attribute set to chat name)
+            contact_title_container = selected_chat.find_element_by_xpath(
+                "./div/div[2]/div/div[1]")
             # Then get all the spans it contains
             contact_title_container_spans = contact_title_container.find_elements_by_tag_name(
                 'span')
@@ -194,13 +192,13 @@ def get_chats(driver):
                     name_of_chat = span_title.get_property('title')
                     break
 
-            # Get the time
-            last_chat_time = selected_chat.find_element_by_class_name(
-                "_2gsiG").text
+            # Get the time (xpath == div element that holds last chat time e.g. 'Wednesday' or '1/1/2021')
+            last_chat_time = selected_chat.find_element_by_xpath(
+                "./div/div[2]/div/div[2]").text
 
-            # Get the last message
-            last_chat_msg_element = selected_chat.find_element_by_class_name(
-                "fqPQb")
+            # Get the last message (xpath == div element that holds a span w/ title attribute set to last chat message)
+            last_chat_msg_element = selected_chat.find_element_by_xpath(
+                "./div/div[2]/div[2]/div")
             last_chat_msg = last_chat_msg_element.find_element_by_tag_name(
                 'span').get_attribute('title')
 
@@ -334,8 +332,9 @@ def load_selected_chat(driver):
 
     print("Loading messages...", end="\r")
 
-    # Set focus to chat window
-    message_list_element = driver.find_element_by_class_name("tSmQ1")
+    # Set focus to chat window (xpath == div element w/ aria-label set to 'Message list. Press right arrow key...')
+    message_list_element = driver.find_element_by_xpath(
+        '//*[@id="main"]/div[3]/div/div/div[3]')
     message_list_element.send_keys(Keys.NULL)
 
     # Get scroll height of the chat pane div so we can calculate if new messages were loaded
@@ -374,11 +373,10 @@ def load_selected_chat(driver):
 
         # Check if all messages were loaded or retry loading more
         elif current_scroll_height == previous_scroll_height:
-            # All messages loaded?
-            try:
-                # This is the 'load more messages' element
-                driver.find_element_by_class_name("_1888i")
-            except NoSuchElementException:
+            # All messages loaded? (xpath == 'load earlier messages' / 'loading messages...' div that is deleted from DOM after all messages have loaded)
+            loading_earlier_msgs = driver.find_element_by_xpath(
+                '//*[@id="main"]/div[3]/div/div/div[2]/div').get_attribute('title')
+            if 'load' not in loading_earlier_msgs:
                 all_msgs_loaded = True
                 print("Success! Your entire chat history has been loaded.")
                 break
@@ -423,32 +421,25 @@ def find_selected_chat(driver, selected_chat):
 
     print(f"Searching for '{selected_chat}'...", end="\r")
 
-    # Find the chat via search
+    # Find the chat via search (xpath == 'Search or start new chat' element)
     chat_search = driver.find_element_by_xpath(
         '//*[@id="side"]/div[1]/div/label/div/div[2]')
     chat_search.click()
 
     # Type the chat name into the search box using a JavaScript hack because Selenium/Chromedriver doesn't support all unicode chars - https://bugs.chromium.org/p/chromedriver/issues/detail?id=2269
-    emoji_hack_script = f'''
-    let chat_search = document.querySelector('._1awRl');
-    chat_search.innerHTML = '{selected_chat}';
-    '''
-    driver.execute_script(emoji_hack_script, selected_chat)
+    driver.execute_script(
+        f"arguments[0].innerHTML = '{selected_chat}'", chat_search)
 
-    # Manually fire the JS listeners/events with keyboard input
-    chat_search.send_keys(Keys.SPACE)
-
-    # Remove the unnecessary space from above step
-    chat_search.send_keys(Keys.BACKSPACE)
-
-    # Go to the end of the search input box so that the next key (down) can select the chat card (if any)
+    # Manually fire the JS listeners/events with keyboard input that adds/removes a space at end of search string
     chat_search.send_keys(Keys.END)
+    chat_search.send_keys(Keys.SPACE)
+    chat_search.send_keys(Keys.BACKSPACE)
 
     # Wait for search results to load (5 sec max)
     try:
         # Look for the unique class that holds 'Search results.'
         WebDriverWait(driver, 5).until(expected_conditions.presence_of_element_located(
-            (By.XPATH, "//*[@class='_3soxC _2aY82']")))
+            (By.XPATH, "//*[@id='pane-side']/div[1]/div/div[contains(@aria-label,'Search results.')]")))
 
         # Force small sleep to deal with issue where focus gets interrupted after wait
         sleep(2)
@@ -472,9 +463,9 @@ def find_selected_chat(driver, selected_chat):
                 f"Error! '{selected_chat}' chat could not be loaded in WhatsApp.")
             return False
         else:
-            # Get the chat name
-            chat_name_header = driver.find_element_by_class_name(
-                'YEe1t').find_element_by_tag_name('span').get_attribute('title')
+            # Get the chat name (xpath == span w/ title set to chat name, a descendant of header tag and anchored at top of chat window)
+            chat_name_header = driver.find_element_by_xpath(
+                '//*[@id="main"]/header/div[2]/div[1]/div/span').get_attribute('title')
 
             # Compare searched chat name to the selected chat name
             if chat_name_header == selected_chat:
@@ -494,9 +485,13 @@ def scrape_chat(driver):
     # Make soup
     soup = BeautifulSoup(driver.page_source, 'lxml')
 
-    # Get all content from chat messages pane (div w/ class 'tSmQ1'), search for and only keep HTML elements which contain messages
+    # Get the 'Message list' element that is a container for all messages in the right chat pane
+    message_list = driver.find_element_by_xpath(
+        '//*[@id="main"]/div[3]/div/div/div[2]').get_attribute('class')
+
+    # Search for and only keep HTML elements which contain actual messages
     chat_messages = [
-        msg for msg in soup.find("div", "tSmQ1").contents if 'message' in " ".join(msg.get('class'))]
+        msg for msg in soup.find("div", message_list).contents if 'message' in " ".join(msg.get('class'))]
     chat_messages_count = len(chat_messages)
 
     # Get users profile name
@@ -562,8 +557,8 @@ def scrape_chat(driver):
                 message_scraped['message'] = scrape_selectable(
                     selectable_text, message_scraped['has_emoji_text'])
 
-        # Check if message was recalled / deleted by the user ('_1qQEf' is a unique class for these, typically a div that contains the 'prohibited' emoji/SVG)
-        if message.find('div', '_1qQEf'):
+        # Check if message was recalled
+        if is_recall_in_message(message):
             message_scraped['has_recall'] = True
 
             # Update the message object
@@ -666,20 +661,12 @@ def scrape_copyable(copyable_text):
     copyable_scrape['datetime'] = datetime.strptime(
         f"{copyable_attrs[0].split(', ')[1]} {copyable_attrs[0].split(', ')[0]}", "%m/%d/%Y %I:%M %p")
 
-    # Check for quoted/replied to and ignore that text
-    for c in copyable_text.contents:
-        # Check if the replied message contains media (element's data-testid will contain 'media') and skip it
-        if c.find(attrs={'data-testid': True}):
-            if 'media' in c.find(attrs={'data-testid': True}).get('data-testid'):
-                continue
-        # Check if the replied message is text (element's class will contain '_3fs13')
-        if c.get('class'):
-            if not '_3fs13' in c.get('class'):
-                copyable_scrape['message'] = c.text
-                break
-
-        # No quoted/replied on the current tag
-        continue
+    # Get the text-only portion of the message contents (always in a span w/ copyable-text class)
+    content = copyable_text.find('span', 'copyable-text')
+    if content:
+        copyable_scrape['message'] = content
+    else:
+        copyable_scrape['message'] = ''
 
     return copyable_scrape
 
@@ -716,36 +703,59 @@ def scrape_selectable(selectable_text, has_emoji=False):
         return selectable_text.text
 
 
+def is_recall_in_message(message):
+    '''Returns True if message contains recall pattern (a span will contain 'recalled' in data-*), if not returns False.'''
+    # Check if message contains spans
+    spans = message.find_all('span')
+    if spans:
+        # Check all spans for recalled
+        for span in spans:
+            if span.get('data-testid') == 'recalled':
+                return True
+
+    return False
+
+
 def find_chat_datetime_when_copyable_does_not_exist(message, last_msg_date):
     '''Returns a message's date/time when there's no 'copyable-text' attribute within the message e.g. deleted messages, media w/ no text, etc.'''
 
-    # Get date/time (note: every message renders time in a span w/ class '_2JNr-')
-    if message.find('span', '_2JNr-'):
-        # Get the hour/minute time from the media message
-        message_time = message.find('span', '_2JNr-').text
+    spans = message.find_all('span')
+    # Check if spans exist
+    if spans:
+        for span in spans:
+            # Check spans w/ text if they are dates/times
+            if span.text:
+                try:
+                    datetime.strptime(span.text, "%I:%M %p")
+                except:
+                    # Span text is not a date/time value
+                    continue
+                else:
+                    # Get the hour/minute time from the media message
+                    message_time = span.text
 
-        # Get the sibling div holding the latest chat date, otherwise if that doesn't exist then grab the last msg date
-        try:
-            # Check if the chat row is a date (a div element w/ 'focusable' class and no 'data-id' attribute)
-            sibling_date = message.find_previous_sibling(
-                "div", attrs={'data-id': False}).text
+                    # Get the sibling div holding the latest chat date, otherwise if that doesn't exist then grab the last msg date
+                    try:
+                        # Check if row from message list is a date and not a chat (a div element w/ 'focusable' class and no 'data-id' attribute)
+                        sibling_date = message.find_previous_sibling(
+                            "div", attrs={'data-id': False}).text
 
-            # Try converting to a date/time object
-            media_message_datetime = datetime.strptime(
-                f"{sibling_date} {message_time}", "%m/%d/%Y %I:%M %p")
+                        # Try converting to a date/time object
+                        media_message_datetime = datetime.strptime(
+                            f"{sibling_date} {message_time}", "%m/%d/%Y %I:%M %p")
 
-            # Build date/time object
-            message_datetime = datetime.strptime(
-                f"{media_message_datetime.strftime('%m/%d/%Y')} {media_message_datetime.strftime('%I:%M %p')}", "%m/%d/%Y %I:%M %p")
+                        # Build date/time object
+                        message_datetime = datetime.strptime(
+                            f"{media_message_datetime.strftime('%m/%d/%Y')} {media_message_datetime.strftime('%I:%M %p')}", "%m/%d/%Y %I:%M %p")
 
-            return message_datetime
+                        return message_datetime
 
-        # Otherwise last message's date/time (note this could assign the wrong date if for example the last message was 1+ days ago)
-        except:
-            message_datetime = datetime.strptime(
-                f"{last_msg_date.strftime('%m/%d/%Y')} {message_time}", "%m/%d/%Y %I:%M %p")
+                    # Otherwise last message's date/time (note this could assign the wrong date if for example the last message was 1+ days ago)
+                    except:
+                        message_datetime = datetime.strptime(
+                            f"{last_msg_date.strftime('%m/%d/%Y')} {message_time}", "%m/%d/%Y %I:%M %p")
 
-            return message_datetime
+                        return message_datetime
 
     else:
         return None
@@ -754,31 +764,45 @@ def find_chat_datetime_when_copyable_does_not_exist(message, last_msg_date):
 def is_media_in_message(message):
     '''Returns True if media is discovered within the message by checking the soup for known media flags. If not, it returns False.'''
 
-    # First check for data-testid attributes containing 'media' (this covers gifs, videos, downloadable content)
+    # First check for data-testid attributes containing 'media' or 'download' (this covers gifs, videos, downloadable content)
     possible_media_spans = message.find_all(attrs={'data-testid': True})
     for span in possible_media_spans:
         # Media types are stored in 'data-testid' attribute
         media_attr = span.get('data-testid')
 
-        if 'media' in media_attr:
+        if 'media' in media_attr or 'download' in media_attr:
             return True
         else:
             continue
 
-    # Then check one of the blanket media classes which covers the above and other things like pdfs, txt files, contact cards, etc.
+    # Check if the media is a shared contact e.g. vCard/VCF, or a sticker
     if message.get('class'):
-        # GIFs, image attachments, txt files, pdf files, contact cards, links w/ previewed image
-        if '_2FNAC' in message.get('class'):
+        # Check for shared contact
+        copyable = message.find('div', 'copyable-text')
+        if copyable:
+            # Get all buttons
+            buttons = copyable.find_all('div', {'role': 'button'})
+            if buttons:
+                # Look for contact card button pattern (2 divs w/ titles of 'Message X' and 'Add to a group')
+                for button in buttons:
+                    # Only check buttons with Title attribute
+                    if button.get('title'):
+                        # Check if 'Message' is in the title (full title would be for example 'Message Bob Ross')
+                        if 'Message' in button.get('title'):
+                            # Next sibling should always be the 'Add to a group' button
+                            if button.nextSibling:
+                                if button.nextSibling.get('title') == 'Add to a group':
+                                    return True
+
+        # Check for group sticker (2 side-by-side stickers)
+        if 'grouped-sticker' in message.get('data-id'):
             return True
 
-        # Check for stickers (grouped and individual stickers)
-        if 'grouped-sticker' in message.get('data-id') or message.find('div', "_23kzp"):
-            return True
-
-        # Voice messages which are nested in child divs so we need to scan all contents
-        for c in message.contents:
-            if c.get('class'):
-                if '_2Irzd' in c.get('class'):
+        # Check for individual sticker
+        images = message.find_all('img')
+        if images:
+            for image in images:
+                if 'blob' in image.get('src'):
                     return True
 
     return False
@@ -804,8 +828,8 @@ def find_media_sender_when_copyable_does_not_exist(message):
 
     # Manually construct the senders name if it has an emoji by building a string from span.text and img/emoji tags
     if has_emoji:
-        # Get all elements from container span that uses a unique class for names that contain emojis
-        emoji_name_elements = message.find('span', '_19038 _3cwQ7 _1VzZY')
+        # Get all elements from known emoji container span (always contained within a div that uses the class 'color-#' and will be the 0th child item)
+        emoji_name_elements = message.select("div[class*='color']")[0].next
 
         # Loop over every child element of the span to construct the senders name
         name = ''
