@@ -658,8 +658,8 @@ def scrape_copyable(copyable_text):
 
     # Get the sender, date/time, and msg contents
     copyable_scrape['sender'] = copyable_attrs[1]
-    copyable_scrape['datetime'] = datetime.strptime(
-        f"{copyable_attrs[0].split(', ')[1]} {copyable_attrs[0].split(', ')[0]}", "%m/%d/%Y %I:%M %p")
+    copyable_scrape['datetime'] = parse_datetime(
+        f"{copyable_attrs[0].split(', ')[1]} {copyable_attrs[0].split(', ')[0]}")
 
     # Get the text-only portion of the message contents (always in a span w/ copyable-text class)
     content = copyable_text.find('span', 'copyable-text')
@@ -726,7 +726,7 @@ def find_chat_datetime_when_copyable_does_not_exist(message, last_msg_date):
             # Check spans w/ text if they are dates/times
             if span.text:
                 try:
-                    datetime.strptime(span.text, "%I:%M %p")
+                    parse_datetime(span.text, time_only=True)
                 except:
                     # Span text is not a date/time value
                     continue
@@ -741,24 +741,51 @@ def find_chat_datetime_when_copyable_does_not_exist(message, last_msg_date):
                             "div", attrs={'data-id': False}).text
 
                         # Try converting to a date/time object
-                        media_message_datetime = datetime.strptime(
-                            f"{sibling_date} {message_time}", "%m/%d/%Y %I:%M %p")
+                        media_message_datetime = parse_datetime(
+                            f"{sibling_date} {message_time}")
 
                         # Build date/time object
-                        message_datetime = datetime.strptime(
-                            f"{media_message_datetime.strftime('%m/%d/%Y')} {media_message_datetime.strftime('%I:%M %p')}", "%m/%d/%Y %I:%M %p")
+                        message_datetime = parse_datetime(
+                            f"{media_message_datetime.strftime('%m/%d/%Y')} {media_message_datetime.strftime('%I:%M %p')}")
 
                         return message_datetime
 
                     # Otherwise last message's date/time (note this could assign the wrong date if for example the last message was 1+ days ago)
                     except:
-                        message_datetime = datetime.strptime(
-                            f"{last_msg_date.strftime('%m/%d/%Y')} {message_time}", "%m/%d/%Y %I:%M %p")
+                        message_datetime = parse_datetime(
+                            f"{last_msg_date.strftime('%m/%d/%Y')} {message_time}")
 
                         return message_datetime
 
     else:
         return None
+
+
+def parse_datetime(text, time_only=False):
+    '''Try parsing and returning datetimes in a North American standard, otherwise raise a ValueError'''
+    # TODO lazy approach to handling variances of North America date/time values MM/DD/YYYY AM/PM or YYYY-MM-DD A.M./P.M.
+
+    # Normalize the text
+    text = text.upper().replace("A.M.", "AM").replace("P.M.", "PM")
+
+    # Try parsing when text is some datetime value e.g. 2/15/2021 2:35 P.M.
+    if not time_only:
+        for fmt in ('%m/%d/%Y %I:%M %p', '%Y-%m-%d %I:%M %p'):
+            try:
+                return datetime.strptime(text, fmt)
+            except ValueError:
+                continue
+        raise ValueError(
+            f"{text} does not match a valid datetime format of '%m/%d/%Y %I:%M %p' or '%Y-%m-%d %I:%M %p'. Make sure your WhatsApp language settings on your phone are set to English.")
+
+    # Try parsing when text is some time value e.g. 2:35 PM
+    else:
+        try:
+            return datetime.strptime(text, '%I:%M %p')
+        except ValueError:
+            pass
+        raise ValueError(
+            f"{text} does not match expected time format of '%I:%M %p'. Make sure your WhatsApp language settings on your phone are set to English.")
 
 
 def is_media_in_message(message):
