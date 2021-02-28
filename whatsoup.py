@@ -334,7 +334,7 @@ def load_selected_chat(driver):
 
     # Set focus to chat window (xpath == div element w/ aria-label set to 'Message list. Press right arrow key...')
     message_list_element = driver.find_element_by_xpath(
-        '//*[@id="main"]/div[3]/div/div/div[3]')
+        "//*[@id='main']/div[3]/div/div/div[contains(@aria-label,'Message list')]")
     message_list_element.send_keys(Keys.NULL)
 
     # Get scroll height of the chat pane div so we can calculate if new messages were loaded
