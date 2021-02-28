@@ -83,7 +83,9 @@ A web scraper that exports your entire WhatsApp chat history.
     CHROME_PROFILE = '/Users/your-username/Library/Application Support/Google/Chrome/Default'
     ```
 
-5) Run the script
+6) Make sure your WhatsApp chat settings are set to English language. This needs to be done on your phone (instructions [here](https://faq.whatsapp.com/general/account-and-profile/how-to-change-whatsapps-language/)). You can change it back afterwards, but for now the script relies on certain HTML elements / attributes that contain English characters/words.
+
+7) Run the script
 
     ```
     # Windows
