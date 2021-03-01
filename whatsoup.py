@@ -88,6 +88,8 @@ def setup_selenium():
     options.add_argument(f"user-data-dir={CHROME_PROFILE}")
     driver = webdriver.Chrome(
         executable_path=DRIVER_PATH, options=options)
+    # Change default script timeout from 30sec to 90sec for execute_script tasks which slow down significantly in very large chats
+    driver.set_script_timeout(90)
 
     return driver
 
