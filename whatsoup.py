@@ -770,11 +770,15 @@ def find_chat_datetime_when_copyable_does_not_exist(message, last_msg_date):
                     # Get the hour/minute time from the media message
                     message_time = span.text
 
-                    # Get the sibling div holding the latest chat date, otherwise if that doesn't exist then grab the last msg date
+                    # Get a sibling div holding the latest chat date, otherwise if that doesn't exist then grab the last msg date
                     try:
-                        # Check if row from message list is a date and not a chat (a div element w/ 'focusable' class and no 'data-id' attribute)
+                        # Check if row from message list is a date and not a chat, grabs the first available prior date (this fires for all but the first date of chat history messaging)
                         sibling_date = message.find_previous_sibling(
                             "div", attrs={'data-id': False}).text
+                        if not sibling_date:
+                            # This grabs the next available subsequent date (only happens if there's no copyable in the first datetime period of chat history e.g. if users only sent media on day 1 of their chat history)
+                            sibling_date = message.find_next_sibling(
+                                "div", attrs={'data-id': False}).text
 
                         # Try converting to a date/time object
                         media_message_datetime = parse_datetime(
