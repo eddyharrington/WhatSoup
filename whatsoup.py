@@ -13,6 +13,7 @@ from selenium.webdriver.common.by import By
 from selenium.common.exceptions import TimeoutException, NoSuchElementException, StaleElementReferenceException, ElementNotInteractableException
 from prettytable import PrettyTable
 from dotenv import load_dotenv
+from timeit import default_timer as timer
 
 
 def main():
@@ -360,7 +361,7 @@ def select_chat(chats):
 
 def load_selected_chat(driver):
     '''Loads entire chat history by repeatedly scrolling up to fetch more data from WhatsApp'''
-
+    start = timer()
     print("Loading messages...", end="\r")
 
     # Set focus to chat window (xpath == div element w/ aria-label set to 'Message list. Press right arrow key...')
@@ -409,7 +410,9 @@ def load_selected_chat(driver):
                 '//*[@id="main"]/div[3]/div/div/div[2]/div').get_attribute('title')
             if 'load' not in loading_earlier_msgs:
                 all_msgs_loaded = True
-                print("Success! Your entire chat history has been loaded.")
+                end = timer()
+                print(
+                    f"Success! Your entire chat history has been loaded in {round(end - start)} seconds.")
                 break
 
             # Retry loading more messages
