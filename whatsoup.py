@@ -10,7 +10,7 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions
 from selenium.webdriver.common.by import By
-from selenium.common.exceptions import TimeoutException, NoSuchElementException
+from selenium.common.exceptions import TimeoutException, NoSuchElementException, StaleElementReferenceException, ElementNotInteractableException
 from prettytable import PrettyTable
 from dotenv import load_dotenv
 
@@ -151,85 +151,116 @@ def get_chats(driver):
 
     print("Loading your chats...", end="\r")
 
-    # Find the chat search (xpath == 'Search or start new chat' element)
-    chat_search = driver.find_element_by_xpath(
-        '//*[@id="side"]/div[1]/div/label/div/div[2]')
-    chat_search.click()
+    # Wrap entire function in a retryable try/catch because chat-pane DOM changes frequently due to users typing, sending messages, and occasional WhatsApp notifications
+    retry_attempts = 0
+    while retry_attempts < 3:
+        retry_attempts += 1
 
-    # Count how many chat records there are below the search input by using keyboard navigation because HTML is dynamically changed depending on viewport and location in DOM
-    selected_chat = driver.switch_to.active_element
-    prev_chat_id = None
-    is_last_chat = False
-    chats = []
+        # Try traversing the chat-pane
+        try:
+            # Find the chat search (xpath == 'Search or start new chat' element)
+            chat_search = driver.find_element_by_xpath(
+                '//*[@id="side"]/div[1]/div/label/div/div[2]')
+            chat_search.click()
 
-    # Descend through the chats
-    while True:
-        # Navigate to next chat
-        selected_chat.send_keys(Keys.DOWN)
+            # Count how many chat records there are below the search input by using keyboard navigation because HTML is dynamically changed depending on viewport and location in DOM
+            selected_chat = driver.switch_to.active_element
+            prev_chat_id = None
+            is_last_chat = False
+            chats = []
 
-        # Set active element to new chat (without this we can't access the elements '.text' value used below for name/time/msg)
-        selected_chat = driver.switch_to.active_element
+            # Descend through the chats
+            while True:
+                # Navigate to next chat
+                selected_chat.send_keys(Keys.DOWN)
 
-        # Check if we are on the last chat by comparing current to previous chat
-        if selected_chat.id == prev_chat_id:
-            is_last_chat = True
-        else:
-            prev_chat_id = selected_chat.id
+                # Set active element to new chat (without this we can't access the elements '.text' value used below for name/time/msg)
+                selected_chat = driver.switch_to.active_element
 
-        # Gather chat info (chat name, chat time, and last chat message)
-        if is_last_chat:
-            break
-        else:
-            # Get the container of the contact card's title (xpath == parent div container to the span w/ title attribute set to chat name)
-            contact_title_container = selected_chat.find_element_by_xpath(
-                "./div/div[2]/div/div[1]")
-            # Then get all the spans it contains
-            contact_title_container_spans = contact_title_container.find_elements_by_tag_name(
-                'span')
-            # Then loop through all those until we find one w/ a title property
-            for span_title in contact_title_container_spans:
-                if span_title.get_property('title'):
-                    name_of_chat = span_title.get_property('title')
+                # Check if we are on the last chat by comparing current to previous chat
+                if selected_chat.id == prev_chat_id:
+                    is_last_chat = True
+                else:
+                    prev_chat_id = selected_chat.id
+
+                # Gather chat info (chat name, chat time, and last chat message)
+                if is_last_chat:
                     break
+                else:
+                    # Get the container of the contact card's title (xpath == parent div container to the span w/ title attribute set to chat name)
+                    contact_title_container = selected_chat.find_element_by_xpath(
+                        "./div/div[2]/div/div[1]")
+                    # Then get all the spans it contains
+                    contact_title_container_spans = contact_title_container.find_elements_by_tag_name(
+                        'span')
+                    # Then loop through all those until we find one w/ a title property
+                    for span_title in contact_title_container_spans:
+                        if span_title.get_property('title'):
+                            name_of_chat = span_title.get_property('title')
+                            break
 
-            # Get the time (xpath == div element that holds last chat time e.g. 'Wednesday' or '1/1/2021')
-            last_chat_time = selected_chat.find_element_by_xpath(
-                "./div/div[2]/div/div[2]").text
+                    # Get the time (xpath == div element that holds last chat time e.g. 'Wednesday' or '1/1/2021')
+                    last_chat_time = selected_chat.find_element_by_xpath(
+                        "./div/div[2]/div/div[2]").text
 
-            # Get the last message (xpath == div element that holds a span w/ title attribute set to last chat message)
-            last_chat_msg_element = selected_chat.find_element_by_xpath(
-                "./div/div[2]/div[2]/div")
-            last_chat_msg = last_chat_msg_element.find_element_by_tag_name(
-                'span').get_attribute('title')
+                    # Get the last message (xpath == div element that holds a span w/ title attribute set to last chat message)
+                    last_chat_msg_element = selected_chat.find_element_by_xpath(
+                        "./div/div[2]/div[2]/div")
+                    last_chat_msg = last_chat_msg_element.find_element_by_tag_name(
+                        'span').get_attribute('title')
 
-            # Strip last message of left-to-right directional encoding ('\u202a' and '\u202c') if it exists
-            if '\u202a' in last_chat_msg or '\u202c' in last_chat_msg:
-                last_chat_msg = last_chat_msg.lstrip(
-                    u'\u202a')
-                last_chat_msg = last_chat_msg.rstrip(
-                    u'\u202c')
+                    # Strip last message of left-to-right directional encoding ('\u202a' and '\u202c') if it exists
+                    if '\u202a' in last_chat_msg or '\u202c' in last_chat_msg:
+                        last_chat_msg = last_chat_msg.lstrip(
+                            u'\u202a')
+                        last_chat_msg = last_chat_msg.rstrip(
+                            u'\u202c')
 
-            # Check if last message is a group chat and if so prefix the senders name to the message
-            last_chat_msg_sender = last_chat_msg_element.find_element_by_tag_name(
-                'span').text
-            if '\n: \n' in last_chat_msg_sender:
-                # Group have multiple spans to separate sender, colon, and msg contents e.g. '<sender>: <msg>', so we take the first item after splitting to capture the senders name
-                last_chat_msg_sender = last_chat_msg_sender.split('\n')[
-                    0]
+                    # Check if last message is a group chat and if so prefix the senders name to the message
+                    last_chat_msg_sender = last_chat_msg_element.find_element_by_tag_name(
+                        'span').text
+                    if '\n: \n' in last_chat_msg_sender:
+                        # Group have multiple spans to separate sender, colon, and msg contents e.g. '<sender>: <msg>', so we take the first item after splitting to capture the senders name
+                        last_chat_msg_sender = last_chat_msg_sender.split('\n')[
+                            0]
 
-                # Prefix the message w/ senders name
-                last_chat_msg = f"{last_chat_msg_sender}: {last_chat_msg}"
+                        # Prefix the message w/ senders name
+                        last_chat_msg = f"{last_chat_msg_sender}: {last_chat_msg}"
 
-            # Store chat info within a dict
-            chat = {"name": name_of_chat,
-                    "time": last_chat_time, "message": last_chat_msg}
-            chats.append(chat)
+                    # Store chat info within a dict
+                    chat = {"name": name_of_chat,
+                            "time": last_chat_time, "message": last_chat_msg}
+                    chats.append(chat)
 
-    # Navigate back to the top of the chat list
-    chat_search.click()
-    chat_search.send_keys(Keys.DOWN)
+            # Navigate back to the top of the chat list
+            chat_search.click()
+            chat_search.send_keys(Keys.DOWN)
 
-    print("Success! Your chats have been loaded.")
+            print("Success! Your chats have been loaded.")
+            break
+
+        # Catch errors related to DOM changes
+        except (StaleElementReferenceException, ElementNotInteractableException) as e:
+            if retry_attempts == 3:
+                # Make sure we grant user option to exit if DOM keeps changing while scanning chat list
+                print("This is taking longer than usual...")
+                while True:
+                    response = input(
+                        "Try loading chats again (y/n)? ")
+                    if response.strip().lower() == 'n' or response.strip().lower() == 'no':
+                        print(
+                            'Error! Aborting chat load by user due to frequent DOM changes.')
+                        if type(e).__name__ == 'StaleElementReferenceException':
+                            raise StaleElementReferenceException
+                        else:
+                            raise ElementNotInteractableException
+                    elif response.strip().lower() == 'y' or response.strip().lower() == 'yes':
+                        retry_attempts = 0
+                        break
+                    else:
+                        continue
+            else:
+                pass
 
     return chats
 
