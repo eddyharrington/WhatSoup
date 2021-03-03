@@ -121,11 +121,11 @@ def whatsapp_is_loaded(driver):
                 err_response = input("Proceed (y/n)? ")
 
                 # Try again
-                if err_response.strip().lower() == 'y' or err_response.strip().lower() == 'yes':
+                if err_response.strip().lower() in {'y', 'yes'}:
                     is_valid_response = True
                     continue
                 # Abort loading WhatsApp
-                elif err_response.strip().lower() == 'n' or err_response.strip().lower() == 'no':
+                elif err_response.strip().lower() in {'n', 'no'}:
                     is_valid_response = True
                     return False
                 # Re-prompt the question
@@ -250,14 +250,14 @@ def get_chats(driver):
                 while True:
                     response = input(
                         "Try loading chats again (y/n)? ")
-                    if response.strip().lower() == 'n' or response.strip().lower() == 'no':
+                    if response.strip().lower() in {'n', 'no'}:
                         print(
                             'Error! Aborting chat load by user due to frequent DOM changes.')
                         if type(e).__name__ == 'StaleElementReferenceException':
                             raise StaleElementReferenceException
                         else:
                             raise ElementNotInteractableException
-                    elif response.strip().lower() == 'y' or response.strip().lower() == 'yes':
+                    elif response.strip().lower() in {'y', 'yes'}:
                         retry_attempts = 0
                         break
                     else:
@@ -321,10 +321,10 @@ def print_chats(chats, full=False):
         while not is_valid_response:
             user_response = input(
                 "Would you like to see a complete summary of the scraped chats (y/n)? ")
-            if user_response.strip().lower() == 'y' or user_response.strip().lower() == 'yes':
+            if user_response.strip().lower() in {'y', 'yes'}:
                 print_chats(chats, full=True)
                 is_valid_response = True
-            elif user_response.strip().lower() == 'n' or user_response.strip().lower() == 'no':
+            elif user_response.strip().lower() in {'n', 'no'}:
                 is_valid_response = True
             else:
                 is_valid_response = False
@@ -425,11 +425,11 @@ def load_selected_chat(driver):
                     while True:
                         response = input(
                             "Try loading more messages (y/n)? ")
-                        if response.strip().lower() == 'n' or response.strip().lower() == 'no':
+                        if response.strip().lower() in {'n', 'no'}:
                             print(
                                 'Error! Aborting chat load by user due to loading timeout.')
                             return False
-                        elif response.strip().lower() == 'y' or response.strip().lower() == 'yes':
+                        elif response.strip().lower() in {'y', 'yes'}:
                             # Set focus to chat window again
                             message_list_element.send_keys(Keys.NULL)
 
@@ -720,7 +720,7 @@ def scrape_selectable(selectable_text, has_emoji=False):
             # Loop over every child element of the span to construct the message
             for element in span.contents:
                 # Check what kind of element it is
-                if element.name == None:
+                if element.name is None:
                     # Text, ignoring empty strings
                     if element == ' ':
                         continue
@@ -763,7 +763,7 @@ def find_chat_datetime_when_copyable_does_not_exist(message, last_msg_date):
             if span.text:
                 try:
                     parse_datetime(span.text, time_only=True)
-                except:
+                except ValueError:
                     # Span text is not a date/time value
                     continue
                 else:
@@ -791,7 +791,7 @@ def find_chat_datetime_when_copyable_does_not_exist(message, last_msg_date):
                         return message_datetime
 
                     # Otherwise last message's date/time (note this could assign the wrong date if for example the last message was 1+ days ago)
-                    except:
+                    except ValueError:
                         message_datetime = parse_datetime(
                             f"{last_msg_date.strftime('%m/%d/%Y')} {message_time}")
 
@@ -902,7 +902,7 @@ def find_media_sender_when_copyable_does_not_exist(message):
         name = ''
         for element in emoji_name_elements.contents:
             # Check what kind of element it is
-            if element.name == None:
+            if element.name is None:
                 # Text, ignoring empty strings
                 if element == ' ':
                     continue
@@ -1085,10 +1085,10 @@ def user_is_finished():
         response = input("Proceed with exporting another chat (y/n)? ")
 
         # Do not exit WhatSoup
-        if response.strip().lower() == 'y' or response.strip().lower() == 'yes':
+        if response.strip().lower() in {'y', 'yes'}:
             return False
         # Quit and exit
-        elif response.strip().lower() == 'n' or response.strip().lower() == 'no':
+        elif response.strip().lower() in {'n', 'no'}:
             return True
         # Re-prompt the question
         else:
