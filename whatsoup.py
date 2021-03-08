@@ -776,9 +776,14 @@ def find_chat_datetime_when_copyable_does_not_exist(message, last_msg_date):
                         sibling_date = message.find_previous_sibling(
                             "div", attrs={'data-id': False}).text
                         if not sibling_date:
-                            # This grabs the next available subsequent date (only happens if there's no copyable in the first datetime period of chat history e.g. if users only sent media on day 1 of their chat history)
-                            sibling_date = message.find_next_sibling(
-                                "div", attrs={'data-id': False}).text
+                            # Use the previous messages date if it exists
+                            if last_msg_date:
+                                sibling_date = last_msg_date.strftime(
+                                    '%m/%d/%Y')
+                            else:
+                                # Otherwise use the next available subsequent date (note this fires only on the first message w/ rare conditions when copyable-text doesn't exist; could assign the wrong date if for example the next available date is 1+ day in advance of the current message)
+                                sibling_date = message.find_next_sibling(
+                                    "div", attrs={'data-id': False}).text
 
                         # Try converting to a date/time object
                         media_message_datetime = parse_datetime(
