@@ -123,15 +123,7 @@ No.
 
 ### How large of chats can I load/export?
 
-The most demanding part of the process is loading the entire chat in the browser, in which performance heavily depends on how much memory your computer has and how well Chrome handles the large DOM load. For reference, my largest chat (~50k messages) uses about 10GB of RAM. If you load more than the current record let me know and add yourself to the leader board.
-
-WhatSoup Largest Chat Leader Board
-
-| #     | Name |    Date    | Message Count | Time    |
-| :---: | :--- | :--------: | :------------ | :------ |
-|  🥇   | Eddy | 2021-02-28 | 47,550       | 28139 sec / 7.8 hrs |
-|  🥈   |  ?   |     ?      | ?             | ?       |
-|  🥉   |  ?   |     ?      | ?             | ?       |
+The most demanding part of the process is loading the entire chat in the browser, in which performance heavily depends on how much memory your computer has and how well Chrome handles the large DOM load. For reference, my largest chat (~50k messages) uses about 10GB of RAM.
 
 ### How long does it take to load/export?
 
