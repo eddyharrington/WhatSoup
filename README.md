@@ -1,6 +1,8 @@
 # WhatSoup 🍲
 
-A web scraper that exports your entire WhatsApp chat history.
+A (deprecated) web scraper that exports your entire WhatsApp chat history.
+
+⛔ DEPRECATED as of April 2021: I cannot maintain this repo any longer but feel free to fork and maintain it going forward.
 
 ## Table of Contents
 
