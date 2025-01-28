@@ -1,16 +1,15 @@
 from setuptools import setup, find_packages
 
 setup(
-    name='WhatSoup',
+    name='whatsoup',
     version='1.0.0',
     author='Eddy Harrington',
     author_email='eddy@example.com',
     description='A web scraper that exports your entire WhatsApp chat history.',
     long_description=open('README.md').read(),
     long_description_content_type='text/markdown',
-    url='https://github.com/eddyharrington/WhatSoup',
-    packages=find_packages(where='src'),
-    package_dir={'': 'src'},
+    url='https://github.com/grudloff/WhatSoup',
+    packages=find_packages(),
     install_requires=[
         'autopep8==1.5.4',
         'beautifulsoup4==4.9.3',
