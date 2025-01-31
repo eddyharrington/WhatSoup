@@ -134,3 +134,5 @@ Output.txt
 *.xlsx
 .note
 /exports
+
+chromedriver-linux64
