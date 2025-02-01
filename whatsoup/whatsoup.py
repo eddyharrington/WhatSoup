@@ -31,13 +31,7 @@ class whatsappClient():
     def __init__(self, headless: bool = True, script_timeout: int = 90):
         self.headless = headless
         self.script_timeout = script_timeout
-        self.driver: webdriver.Chrome = self.setup_selenium()
-
-    def __setattr__(self, name, value):
-        if hasattr(self, 'driver') and name in ['headless', 'script_timeout']:
-            self.driver.quit()
-            self.driver = self.setup_selenium()
-        super().__setattr__(name, value)
+        self.driver = None
 
     def setup_selenium(self) -> webdriver.Chrome:
         """
@@ -328,7 +322,7 @@ class whatsappClient():
             TimeoutError: If WhatsApp does not load within the specified time.
             Exception: If any other error occurs during the chat scraping process.
         """
-
+        self.driver = self.setup_selenium()
         try:
             if not self.whatsapp_is_loaded():
                 raise TimeoutError("WhatsApp did not load within the specified time.")
@@ -345,10 +339,7 @@ class whatsappClient():
             raise e
 
         finally:
-            self.driver.close()
-
-    def __del__(self):
-        self.driver.quit()
+            self.driver.quit()
 
 
 if __name__ == "__main__":
