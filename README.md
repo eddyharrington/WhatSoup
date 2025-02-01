@@ -74,9 +74,13 @@ I am most likely not going to maintain this project, but I hope that it can be u
       # and therefore should not be run in headless mode
       headless=False
    )
-   query: str = 'chat_name'
+
+   chat_names: list[str] = client.get_chat_names()
+
+   query: str = chat_names[0]
    chat: pd.DataFrame = client.get_chat(query=query,
                           messages_number_target=100,
                           )
-   export_csv(chat, query)
+   filepath: str = export_csv(chat, query)
+
    ```
