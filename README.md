@@ -59,8 +59,10 @@ I am most likely not going to maintain this project, but I hope that it can be u
 
 # Usage
 
+   The code below can be found in `test\main.py` and is a simple example of how to use the package.
+
    ```python
-   from whatsoup.whatsoup import whatsappClient
+   from whatsoup.whatsoup import WhatsappClient
    from whatsoup.utils import export_csv
    import pandas as pd
    import logging
