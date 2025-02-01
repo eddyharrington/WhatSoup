@@ -19,7 +19,7 @@ from selenium.common.exceptions import (TimeoutException, NoSuchElementException
 from dotenv import load_dotenv
 
 import pandas as pd
-from utils import parse_datetime, export_csv
+from whatsoup.utils import parse_datetime, export_csv
 
 class WhatsappClient():
     """
