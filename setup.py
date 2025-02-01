@@ -1,18 +1,25 @@
-from setuptools import setup, find_packages
+"""Setup script for the Whatsoup package."""
 from pathlib import Path
+from setuptools import setup, find_packages
 
-# Read the requirements from the requirements.txt file
 def parse_requirements(filename):
-    with open(filename, 'r') as file:
+    """Read a requirements file and return a list of requirements."""
+    with open(filename, 'r', encoding='utf-8') as file:
         return file.read().splitlines()
+
+def read_readme():
+    """Read the README file and return its contents."""
+    with open('README.md', 'r', encoding='utf-8') as file:
+        return file.read()
 
 setup(
     name='whatsoup',
     version='1.0.0',
     author='Gabriel Rudloff',
     author_email='gabriel.rudloff@gmail.com',
-    description='A web scraper that exports your entire WhatsApp chat history. Forked from the original project by Eddy Harrington.',
-    long_description=open('README.md').read(),
+    description="""A web scraper that exports your entire WhatsApp chat history. Forked from the
+                original project by Eddy Harrington.""",
+    long_description=read_readme(),
     long_description_content_type='text/markdown',
     url='https://github.com/grudloff/WhatSoup',
     packages=find_packages(),
