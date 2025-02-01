@@ -225,13 +225,13 @@ class whatsappClient():
         Scrapes chat messages from a WhatsApp Web page using a Selenium WebDriver.
 
         Returns:
-            list[dict[str, Any]]: A list of dictionaries, each containing details of a scraped message.
-                Each dictionary contains the following keys:
-                    - sender (str or None): The sender of the message.
-                    - datetime (str or None): The datetime of the message.
-                    - message (str or None): The text content of the message.
-                    - has_emoji_text (bool): Whether the message contains emoji text.
-                    - data-id (str): The unique identifier of the message.
+            pd.DataFrame: A DataFrame containing the scraped messages.
+            The DataFrame has the following columns:
+                - sender (str or None): The sender of the message.
+                - datetime (datetime or None): The datetime of the message.
+                - message (str or None): The text content of the message.
+                - has_emoji_text (bool): Whether the message contains emoji text.
+                - data-id (str): The unique identifier of the message.
         """
         logging.info("Scraping messages...")
         soup = BeautifulSoup(self.driver.page_source, 'lxml')
