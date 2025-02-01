@@ -1,37 +1,26 @@
 from setuptools import setup, find_packages
+from pathlib import Path
+
+# Read the requirements from the requirements.txt file
+def parse_requirements(filename):
+    with open(filename, 'r') as file:
+        return file.read().splitlines()
 
 setup(
     name='whatsoup',
     version='1.0.0',
-    author='Eddy Harrington',
-    author_email='eddy@example.com',
-    description='A web scraper that exports your entire WhatsApp chat history.',
+    author='Gabriel Rudloff',
+    author_email='gabriel.rudloff@gmail.com',
+    description='A web scraper that exports your entire WhatsApp chat history. Forked from the original project by Eddy Harrington.',
     long_description=open('README.md').read(),
     long_description_content_type='text/markdown',
     url='https://github.com/grudloff/WhatSoup',
     packages=find_packages(),
-    install_requires=[
-        'autopep8==1.5.4',
-        'beautifulsoup4==4.9.3',
-        'certifi==2020.12.5',
-        'chardet==4.0.0',
-        'lxml==4.6.2',
-        'prettytable==2.0.0',
-        'pycodestyle==2.6.0',
-        'python-dateutil==2.8.1',
-        'python-dotenv==0.15.0',
-        'pytz==2020.5',
-        'selenium==3.141.0',
-        'six==1.15.0',
-        'soupsieve==2.1',
-        'toml==0.10.2',
-        'urllib3==1.26.2',
-        'wcwidth==0.2.5'
-    ],
+    install_requires=parse_requirements(Path(__file__).parent / 'requirements.txt'),
     classifiers=[
         'Programming Language :: Python :: 3',
         'License :: OSI Approved :: MIT License',
         'Operating System :: OS Independent',
     ],
-    python_requires='>=3.6',
+    python_requires='>=3.9',
 )
