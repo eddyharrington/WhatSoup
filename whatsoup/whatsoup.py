@@ -339,6 +339,24 @@ class WhatsappClient():
             return message
         return selectable_text.text
 
+    def login(self) -> None:
+        """
+        Logs into WhatsApp Web using the Selenium WebDriver.
+
+        This function waits for the user to scan the QR code and logs a success message when the
+        user is logged in.
+        """
+        self.driver = self.setup_selenium()
+        try:
+            if not self.load_whatsapp():
+                raise TimeoutError("WhatsApp did not load within the specified time.")
+        except Exception as e:
+            logging.error("An error occurred while trying to log in!")
+            raise e
+        finally:
+            self.driver.quit()
+
+
     def get_chat(self, query: str, messages_number_target: Optional[int] = None) -> pd.DataFrame:
         """
         Retrieves chat messages from WhatsApp based on the chat that best matches a query.
