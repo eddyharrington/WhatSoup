@@ -68,9 +68,9 @@ class whatsappClient():
 
         return driver
 
-    def whatsapp_is_loaded(self) -> bool:
+    def load_whatsapp(self) -> bool:
         """
-        Checks if WhatsApp Web is loaded and the user is logged in.
+        Loads WhatsApp Web in the Selenium WebDriver.
 
         This function navigates to the WhatsApp Web URL and waits for the user to be logged in.
         If the user is not logged in within the specified wait time, it logs an error message and returns False.
@@ -324,7 +324,7 @@ class whatsappClient():
         """
         self.driver = self.setup_selenium()
         try:
-            if not self.whatsapp_is_loaded():
+            if not self.load_whatsapp():
                 raise TimeoutError("WhatsApp did not load within the specified time.")
             
             self.find_selected_chat(query)
