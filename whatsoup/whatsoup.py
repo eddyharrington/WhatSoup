@@ -19,7 +19,7 @@ from selenium.common.exceptions import (TimeoutException, NoSuchElementException
 from dotenv import load_dotenv
 
 import pandas as pd
-from whatsoup.utils import parse_datetime, export_csv
+from whatsoup.utils import parse_datetime
 
 class WhatsappClient():
     """
@@ -401,14 +401,3 @@ class WhatsappClient():
             raise e
         finally:
             self.driver.quit()
-
-if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-    load_dotenv()
-    chat_name = os.environ.get('QUERY')
-    client = WhatsappClient()
-    chat = client.get_chat(query=chat_name, messages_number_target=100)
-    print("Chat messages:", chat.head())
-    filepath = export_csv(chat, chat_name)
-    chat_names = client.get_chat_names()
-    print("Chat names:", chat_names)
