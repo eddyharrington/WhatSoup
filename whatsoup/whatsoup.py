@@ -11,8 +11,8 @@ from selenium.webdriver.common.action_chains import ActionChains
 from selenium.common.exceptions import TimeoutException, NoSuchElementException, StaleElementReferenceException, ElementNotInteractableException
 from dotenv import load_dotenv
 from timeit import default_timer as timer
+from typing import Optional, Any
 import pandas as pd
-from typing import Optional, Dict, Any
 from utils import parse_datetime, export_csv
 
 class whatsappClient():
@@ -225,7 +225,7 @@ class whatsappClient():
         Scrapes chat messages from a WhatsApp Web page using a Selenium WebDriver.
 
         Returns:
-            List[Dict[str, Any]]: A list of dictionaries, each containing details of a scraped message.
+            list[dict[str, Any]]: A list of dictionaries, each containing details of a scraped message.
                 Each dictionary contains the following keys:
                     - sender (str or None): The sender of the message.
                     - datetime (str or None): The datetime of the message.
@@ -263,7 +263,7 @@ class whatsappClient():
         chat = pd.DataFrame(messages)
         return chat
 
-    def scrape_copyable(self, copyable_text: BeautifulSoup) -> Dict[str, Any]:
+    def scrape_copyable(self, copyable_text: BeautifulSoup) -> dict[str, Any]:
         """
         Extracts and parses information from a BeautifulSoup object containing copyable text.
 
@@ -271,7 +271,7 @@ class whatsappClient():
             copyable_text (BeautifulSoup): A BeautifulSoup object representing the copyable text element.
 
         Returns:
-            Dict[str, Any]: A dictionary containing the sender, datetime, and message extracted from the copyable text.
+            dict[str, Any]: A dictionary containing the sender, datetime, and message extracted from the copyable text.
                 - 'sender' (str): The name of the sender.
                 - 'datetime' (datetime): The datetime when the message was sent.
                 - 'message' (str): The message text.
