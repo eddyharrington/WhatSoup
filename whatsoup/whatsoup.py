@@ -341,6 +341,29 @@ class whatsappClient():
         finally:
             self.driver.quit()
 
+    def get_chat_names(self) -> list:
+        """
+        Retrieves the list of chat names from the WhatsApp Web interface.
+
+        Returns:
+            list: A list of chat names.
+        """
+        self.driver = self.setup_selenium()
+        try:
+            self.load_whatsapp()
+            logging.info("Retrieving chat names...")
+            left_panel = self.driver.find_element(By.ID, 'side')
+            soup = BeautifulSoup(left_panel.get_attribute('outerHTML'), 'lxml')
+            chat_names = [chat['title'] for chat in soup.find_all('span', {'title': True, 'dir': 'auto', 'style': True})]
+            # TODO: Not all chats will be loaded in the side panel and therefore,
+            # we would need to scroll down to load more chats.
+            logging.info(f"Success! Retrieved {len(chat_names)} chat names.")
+            return chat_names
+        except Exception as e:
+            logging.error("An error occurred while trying to retrieve chat names!")
+            raise e
+        finally:
+            self.driver.quit()
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -349,4 +372,7 @@ if __name__ == "__main__":
     messages_number_target = 100
     client = whatsappClient()
     chat = client.get_chat(query=query, messages_number_target=messages_number_target)
+    print("Chat messages:", chat.head())
     filepath = export_csv(chat, query)
+    chat_names = client.get_chat_names()
+    print("Chat names:", chat_names)
