@@ -28,7 +28,7 @@ def parse_datetime(text: str, time_only: Optional[bool] = False) -> datetime:
             continue
     raise ValueError(f"{text} does not match a valid datetime format.")
 
-def export_csv(query: str, chat: pd.DataFrame) -> None:
+def export_csv(chat: pd.DataFrame, query: str) -> str:
     """
     Exports chat data to a CSV file.
 
@@ -45,3 +45,4 @@ def export_csv(query: str, chat: pd.DataFrame) -> None:
     file_path = f"exports/{query.lower().replace(' ','_')}.csv"
     chat.to_csv(file_path, index=False)
     logging.info(f"Success! Your chat has been exported to {file_path}.")
+    return file_path

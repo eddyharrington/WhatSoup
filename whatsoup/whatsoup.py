@@ -12,7 +12,7 @@ from selenium.common.exceptions import TimeoutException, NoSuchElementException,
 from dotenv import load_dotenv
 from timeit import default_timer as timer
 import pandas as pd
-from typing import Optional, List, Dict, Any
+from typing import Optional, Dict, Any
 from utils import parse_datetime, export_csv
 
 class whatsappClient():
@@ -313,18 +313,16 @@ class whatsappClient():
             return message
         return selectable_text.text
 
-    def get_chat(self, query: str, messages_number_target: Optional[int] = None,
-                 return_dataframe: Optional[bool] = False) -> Optional[pd.DataFrame]:
+    def get_chat(self, query: str, messages_number_target: Optional[int] = None) -> pd.DataFrame:
         """
         Retrieves chat messages from WhatsApp based on the chat that best matches a query.
         
         Args:
             query (str): The name or keyword to search for in the chat list.
             messages_number_target (Optional[int], optional): The target number of messages to load. Defaults to None.
-            return_dataframe (Optional[bool], optional): If True, returns the chat messages as a pandas DataFrame. Defaults to False.
         
         Returns:
-            Optional[pd.DataFrame]: A DataFrame containing the chat messages if return_dataframe is True, otherwise None.
+            pd.DataFrame: A DataFrame containing the chat messages.
         
         Raises:
             TimeoutError: If WhatsApp does not load within the specified time.
@@ -340,10 +338,7 @@ class whatsappClient():
             self.load_selected_chat(messages_number_target)
 
             chat = self.scrape_chat()
-            df = export_csv(query, chat)
-
-            if return_dataframe:
-                return df
+            return chat
 
         except Exception as e:
             logging.error("An error occurred while trying to scrape the chat!")
@@ -352,13 +347,15 @@ class whatsappClient():
         finally:
             self.driver.close()
 
-        def __del__(self):
-            self.driver.quit()
+    def __del__(self):
+        self.driver.quit()
 
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-    query = "Caro (Barcelona)"
+    load_dotenv()
+    query = os.environ.get('QUERY')
     messages_number_target = 100
     client = whatsappClient()
-    client.get_chat(query=query, messages_number_target=messages_number_target)
+    chat = client.get_chat(query=query, messages_number_target=messages_number_target)
+    filepath = export_csv(chat, query)
