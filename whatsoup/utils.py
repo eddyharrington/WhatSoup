@@ -1,8 +1,9 @@
+"""Utility functions for the WhatsOup package."""
 from datetime import datetime
 from typing import Optional
 import os
-import pandas as pd
 import logging
+import pandas as pd
 
 
 def parse_datetime(text: str, time_only: Optional[bool] = False) -> datetime:
@@ -11,7 +12,8 @@ def parse_datetime(text: str, time_only: Optional[bool] = False) -> datetime:
 
     Args:
         text (str): The datetime string to parse.
-        time_only (bool, optional): If True, only parses the time part of the string. Defaults to False.
+        time_only (bool, optional): If True, only parses the time part of the string.
+                                    Defaults to False.
 
     Returns:
         datetime: The parsed datetime object.
@@ -44,5 +46,5 @@ def export_csv(chat: pd.DataFrame, query: str) -> str:
         os.mkdir('exports')
     file_path = f"exports/{query.lower().replace(' ','_')}.csv"
     chat.to_csv(file_path, index=False)
-    logging.info(f"Success! Your chat has been exported to {file_path}.")
+    logging.info("Success! Your chat has been exported to %s.", file_path)
     return file_path

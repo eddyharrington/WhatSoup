@@ -1,10 +1,11 @@
 """
-This script is used to test the package. It will connect to the Whatsapp Web and get the messages from the first chat
+This script is used to test the package. It will connect to the Whatsapp Web and get the messages
+from the first chat
 """
 import logging
+import pandas as pd
 from whatsoup.whatsoup import WhatsappClient
 from whatsoup.utils import export_csv
-import pandas as pd
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')

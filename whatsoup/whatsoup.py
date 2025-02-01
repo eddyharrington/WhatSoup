@@ -226,7 +226,6 @@ class WhatsappClient():
                             raise StaleElementReferenceException("StaleElementReferenceException\
                                                                  encountered too many times.")\
                                                                     from exc
-                    continue
                 else:
                     logging.info("Reached the top of the chat!")
                     break
@@ -243,8 +242,6 @@ class WhatsappClient():
                 if counter > 3:
                     raise StaleElementReferenceException("StaleElementReferenceException\
                                                          encountered too many times.") from exc
-                else:
-                    continue
 
         logging.info("Success! Your entire chat history has been loaded in %d seconds.",
                      round(timer() - start))
