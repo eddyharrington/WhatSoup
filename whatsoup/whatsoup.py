@@ -415,7 +415,9 @@ class WhatsappClient():
                 # wait for bottom_chat to change
                 try:
                     WebDriverWait(self.driver, 1).until(
-                        lambda driver: driver.find_element(By.XPATH, "//div[@role='listitem'][last()]") != bottom_chat
+                        lambda driver: driver.find_element(By.XPATH,
+                                                           "//div[@role='listitem'][last()]")\
+                                                              != bottom_chat
                     )
                 except TimeoutException:
                     break
