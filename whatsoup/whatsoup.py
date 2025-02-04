@@ -403,12 +403,29 @@ class WhatsappClient():
             self.load_whatsapp()
             logging.info("Retrieving chat names...")
             left_panel = self.driver.find_element(By.ID, 'side')
-            soup = BeautifulSoup(left_panel.get_attribute('outerHTML'), 'lxml')
-            result = [chat['title'] for chat in soup.find_all('span', {'title': True,
-                                                                       'dir': 'auto',
-                                                                       'style': True})]
-            #TODO: Not all chats will be loaded in the side panel and therefore,
-            # we would need to scroll down to load more chats.
+
+            result = []
+            while True:
+                bottom_chat = self.driver.find_element(By.XPATH, "//div[@role='listitem'][last()]")
+                soup = BeautifulSoup(left_panel.get_attribute('outerHTML'), 'lxml')
+                result += [chat['title'] for chat in soup.find_all('span', {'title': True,
+                                                                           'dir': 'auto',
+                                                                           'style': True})]
+                ActionChains(self.driver).scroll_to_element(bottom_chat).perform()
+                # wait for bottom_chat to change
+                try:
+                    WebDriverWait(self.driver, 1).until(
+                        lambda driver: driver.find_element(By.XPATH, "//div[@role='listitem'][last()]") != bottom_chat
+                    )
+                except TimeoutException:
+                    break
+
+
+            # remove duplicates
+            result = list(set(result))
+            # order alphabetically
+            result.sort()
+
             logging.info("Success! Retrieved %d chat names.", len(result))
             return result
         except Exception as e:
