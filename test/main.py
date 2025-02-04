@@ -12,6 +12,8 @@ if __name__ == "__main__":
     client = WhatsappClient(
         headless=False
     )
+    user_name: str = client.get_user_name()
+    print("User name:", user_name)
     chat_names: list[str] = client.get_chat_names()
     print("Chat names:", chat_names)
     chat_name: str = chat_names[0]

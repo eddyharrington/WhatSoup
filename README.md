@@ -77,6 +77,8 @@ I am most likely not going to maintain this project, but I hope that it can be u
       headless=False
    )
 
+   user_name: str = client.get_user_name()
+
    chat_names: list[str] = client.get_chat_names()
 
    query: str = chat_names[0]
