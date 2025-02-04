@@ -77,17 +77,13 @@ class WhatsappClient():
 
         return driver
 
-    def load_whatsapp(self) -> bool:
+    def load_whatsapp(self):
         """
         Loads WhatsApp Web in the Selenium WebDriver.
 
         This function navigates to the WhatsApp Web URL and waits for the user to be logged in.
-        If the user is not logged in within the specified wait time, it logs an error message
-        and returns False. If the user is logged in successfully, it logs a success message and
-        returns True.
-
-        Returns:
-            bool: True if WhatsApp Web is loaded and the user is logged in, False otherwise.
+        If the user is not logged in within the specified wait time, it will raise an error.
+        If the user is logged in successfully, it returns.
         """
 
         logging.info("Loading WhatsApp...")
@@ -97,10 +93,9 @@ class WhatsappClient():
         while not self.user_is_logged_in(wait_time):
             logging.error("WhatsApp did not load within %d seconds. Make sure you are logged in\
                           and let's try again.", wait_time)
-            return False
+            raise TimeoutError("WhatsApp did not load within the specified time.")
 
         logging.info("Success! WhatsApp finished loading and is ready.")
-        return True
 
 
     def user_is_logged_in(self, wait_time: int) -> bool:
@@ -348,8 +343,7 @@ class WhatsappClient():
         """
         self.driver = self.setup_selenium()
         try:
-            if not self.load_whatsapp():
-                raise TimeoutError("WhatsApp did not load within the specified time.")
+            self.load_whatsapp()
         except Exception as e:
             logging.error("An error occurred while trying to log in!")
             raise e
@@ -375,8 +369,7 @@ class WhatsappClient():
         """
         self.driver = self.setup_selenium()
         try:
-            if not self.load_whatsapp():
-                raise TimeoutError("WhatsApp did not load within the specified time.")
+            self.load_whatsapp()
 
             self.find_selected_chat(query)
 
