@@ -428,3 +428,31 @@ class WhatsappClient():
             raise e
         finally:
             self.driver.quit()
+
+    def get_user_name(self) -> str:
+        """
+        Retrieves the user name from the WhatsApp Web interface.
+
+        Returns:
+            str: The user name.
+        """
+        self.driver = self.setup_selenium()
+        try:
+            self.load_whatsapp()
+            logging.info("Retrieving user name...")
+            profile_button = self.driver.find_element(By.XPATH, "//button[@aria-label='Profile']")
+            profile_button.click()
+            profile_name = WebDriverWait(self.driver, 10).until(
+                presence_of_element_located((By.XPATH, """//span[@dir='auto' and
+                                             contains(@class, 'selectable-text') and
+                                             contains(@class, 'copyable-text')]
+                                             //span[@class='']"""))
+            )
+            user_name = profile_name.text
+            logging.info("Success! Retrieved user name: %s", user_name)
+            return user_name
+        except Exception as e:
+            logging.error("An error occurred while trying to retrieve the user name!")
+            raise e
+        finally:
+            self.driver.quit()
