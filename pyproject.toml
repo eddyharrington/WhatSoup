@@ -1,0 +1,25 @@
+[project]
+name = "whatsoup"
+version = "1.0.0"
+description = "A web scraper that exports your entire WhatsApp chat history. Forked from the original project by Eddy Harrington."
+authors = [
+    {name = "Gabriel Rudloff",email = "gabriel.rudloff@gmail.com"}
+]
+license = {text = "MIT"}
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+    "beautifulsoup4 (>=4.13.3,<5.0.0)",
+    "lxml (>=5.3.1,<6.0.0)",
+    "selenium (>=4.28.1,<5.0.0)",
+    "python-dotenv (>=1.0.1,<2.0.0)",
+    "pandas (>=2.2.3,<3.0.0)"
+]
+
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[project.urls]
+repository = "https://github.com/grudloff/WhatSoup"
